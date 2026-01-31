@@ -251,7 +251,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
       children: [
         _buildStatCard("Total alat", totalAlat, color),
         _buildStatCard("Pinjaman aktif", pinjamanAktif, color),
-        _buildStatCard("Barang rusak", barangRusak, color),
+        _buildStatCard("Alat rusak", barangRusak, color),
       ],
     );
   }
