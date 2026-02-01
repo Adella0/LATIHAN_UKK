@@ -258,7 +258,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-    const SizedBox(height: 78),
+    const SizedBox(height: 70),
     _buildHeader(),
     const SizedBox(height: 38), 
     _buildStatSection(softGrey),

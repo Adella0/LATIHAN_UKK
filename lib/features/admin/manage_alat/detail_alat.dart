@@ -18,10 +18,9 @@ class _DetailAlatScreenState extends State<DetailAlatScreen> {
   @override
   void initState() {
     super.initState();
-    // Mengisi data otomatis dari kartu yang diklik
     _namaController = TextEditingController(text: widget.alatData['nama_alat']);
     _stokController = TextEditingController(text: widget.alatData['stok_total'].toString());
-    _selectedKategori = widget.alatData['nama_kategori']; // Pastikan key sesuai database
+    _selectedKategori = widget.alatData['nama_kategori'];
   }
 
   @override
@@ -36,148 +35,161 @@ class _DetailAlatScreenState extends State<DetailAlatScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header dengan Tombol Back
-              Row(
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF02182F),
-                        shape: BoxShape.circle,
+                  const SizedBox(height: 10),
+                  // Judul Header
+                  Center(
+                    child: Text(
+                      "Detail alat",
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF02182F),
                       ),
-                      child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
                     ),
                   ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        "Detail alat",
-                        style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF02182F),
+                  const SizedBox(height: 40),
+
+                  // Box Gambar
+                  Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          height: 160,
+                          width: 160,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: widget.alatData['foto_url'] != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Image.network(widget.alatData['foto_url'], fit: BoxFit.contain),
+                                )
+                              : const Icon(Icons.image, size: 80, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 20),
+                        // Tombol Ubah Gambar dengan Shadow
+                        GestureDetector(
+                          onTap: () {},
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF011931),
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.add_circle, color: Colors.white, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "Ubah gambar",
+                                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+
+                  // Form Nama
+                  _buildLabel("Nama"),
+                  _buildTextField(_namaController, "Masukkan nama"),
+                  const SizedBox(height: 20),
+
+                  // Form Stok
+                  _buildLabel("Stok"),
+                  _buildTextField(_stokController, "Masukkan stok", isNumber: true),
+                  const SizedBox(height: 20),
+
+                  // Form Kategori
+                  _buildLabel("Kategori"),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedKategori,
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black),
+                        style: GoogleFonts.poppins(color: Colors.black54, fontSize: 14),
+                        items: ["Elektronik", "Olahraga", "Alat musik", "Umum"].map((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (newValue) {
+                          setState(() => _selectedKategori = newValue);
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 50),
+
+                  // Tombol Batal & Simpan
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildActionButton(
+                          label: "Batal",
+                          color: const Color(0xFFC9D0D6),
+                          textColor: const Color(0xFF011931),
+                          onPressed: () => Navigator.pop(context),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: _buildActionButton(
+                          label: "Simpan",
+                          color: const Color(0xFF011931),
+                          textColor: Colors.white,
+                          onPressed: () {},
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 40), // Penyeimbang header
+                  const SizedBox(height: 20),
                 ],
               ),
-              const SizedBox(height: 30),
-
-              // Box Gambar
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      height: 180,
-                      width: 180,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: widget.alatData['foto_url'] != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Image.network(widget.alatData['foto_url'], fit: BoxFit.contain),
-                            )
-                          : const Icon(Icons.image, size: 80, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 15),
-                    ElevatedButton.icon(
-                      onPressed: () {}, // Logika ubah gambar
-                      icon: const Icon(Icons.add_circle, color: Colors.white),
-                      label: const Text("Ubah gambar", style: TextStyle(color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF02182F),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                    ),
-                  ],
+            ),
+            // Tombol Back Floating di Kiri
+            Positioned(
+              top: 20,
+              left: 20,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF02182F),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
                 ),
               ),
-              const SizedBox(height: 30),
-
-              // Form Nama
-              _buildLabel("Nama"),
-              _buildTextField(_namaController, "Masukkan nama"),
-              
-              const SizedBox(height: 15),
-
-              // Form Stok
-              _buildLabel("Stok"),
-              _buildTextField(_stokController, "Masukkan stok", isNumber: true),
-
-              const SizedBox(height: 15),
-
-              // Form Kategori
-              _buildLabel("Kategori"),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 15),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade400),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedKategori,
-                    isExpanded: true,
-                    items: ["Elektronik", "Olahraga", "Umum"].map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (newValue) {
-                      setState(() {
-                        _selectedKategori = newValue;
-                      });
-                    },
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // Tombol Batal & Simpan
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFC9D0D6),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                      ),
-                      child: const Text("Batal", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Logika update Supabase di sini
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF02182F),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                      ),
-                      child: const Text("Simpan", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -185,10 +197,10 @@ class _DetailAlatScreenState extends State<DetailAlatScreen> {
 
   Widget _buildLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 8, left: 2),
       child: Text(
         text,
-        style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500),
       ),
     );
   }
@@ -197,13 +209,47 @@ class _DetailAlatScreenState extends State<DetailAlatScreen> {
     return TextField(
       controller: controller,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black54),
       decoration: InputDecoration(
         hintText: hint,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(15),
           borderSide: BorderSide(color: Colors.grey.shade400),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: const BorderSide(color: Color(0xFF011931)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({required String label, required Color color, required Color textColor, required VoidCallback onPressed}) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              color: textColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+          ),
         ),
       ),
     );
