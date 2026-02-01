@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'tambah_alat.dart'; 
 import 'tambah_kategori.dart'; 
+import '../ui/profil.dart';
 
 class ListAlatScreen extends StatefulWidget {
   const ListAlatScreen({super.key});
@@ -134,28 +135,49 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
     );
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25),
-      child: Row(
-        children: [
-          const CircleAvatar(
+ Widget _buildHeader() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 25),
+    child: Row(
+      children: [
+        // TAMBAHKAN GestureDetector DISINI
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilScreen()),
+            );
+          },
+          child: const CircleAvatar(
             radius: 35,
             backgroundColor: Color(0xFF424242),
             child: Icon(Icons.person, size: 45, color: Colors.white),
           ),
-          const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Hi, $userName!", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-              Text(userRole, style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6C757D), fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        const SizedBox(width: 15),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Hi, $userName!",
+              style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black),
+            ),
+            Text(
+              userRole,
+              style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF6C757D),
+                  fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildSearchBar() {
     return Padding(

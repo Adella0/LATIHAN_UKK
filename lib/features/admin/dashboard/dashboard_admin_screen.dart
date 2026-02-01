@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'daftar_riwayat_aktivitas.dart';
 import '../manage_alat/list_alat_screen.dart';
+import '../manage_user/List_pengguna.dart';
+import '../ui/profil.dart';
 
 class DashboardAdminScreen extends StatefulWidget {
   const DashboardAdminScreen({super.key});
@@ -214,107 +216,143 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF02182F);
+ @override
+Widget build(BuildContext context) {
+  const Color primaryBlue = Color(0xFF02182F);
 
-    // LOGIKA PILIH HALAMAN
-    Widget bodyContent;
-    if (_selectedIndex == 0) {
-      bodyContent = _buildDashboardMainContent();
-    } else if (_selectedIndex == 1) {
-      bodyContent = ListAlatScreen(); // Masuk ke halaman List Alat
-    // Di dalam dashboard_admin_screen.dart
-} else if (_selectedIndex == 3) {
-  // Ganti ini agar tidak memanggil DaftarRiwayatAktivitas() secara langsung
-  bodyContent = const Center(child: Text("Halaman Ringkasan Aktivitas")); 
-} else {
-      bodyContent = const Center(child: Text("Halaman Belum Tersedia"));
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator(color: primaryBlue))
-            : bodyContent, // Menampilkan konten sesuai index yang dipilih
-      ),
-      extendBody: true,
-      bottomNavigationBar: _buildBottomNav(primaryBlue),
-    );
+  // LOGIKA PILIH HALAMAN
+  Widget bodyContent;
+  
+  if (_selectedIndex == 0) {
+    bodyContent = _buildDashboardMainContent();
+  } else if (_selectedIndex == 1) {
+    bodyContent = const ListAlatScreen(); // Halaman List Alat
+  } else if (_selectedIndex == 2) {
+    bodyContent = const ListPenggunaScreen(); // <--- TAMBAHKAN INI
+  } else if (_selectedIndex == 3) {
+    bodyContent = const Center(child: Text("Halaman Ringkasan Aktivitas")); 
+  } else {
+    bodyContent = const Center(child: Text("Halaman Belum Tersedia"));
   }
 
+  return Scaffold(
+    backgroundColor: Colors.white,
+    body: SafeArea(
+      child: isLoading
+          ? const Center(child: CircularProgressIndicator(color: primaryBlue))
+          : bodyContent,
+    ),
+    extendBody: true,
+    bottomNavigationBar: _buildBottomNav(primaryBlue),
+  );
+}
+
   // --- KONTEN UTAMA DASHBOARD ---
-      Widget _buildDashboardMainContent() {
-    const Color primaryBlue = Color(0xFF02182F);
-    const Color softGrey = Color(0xFFC9D0D6);
+     // --- KONTEN UTAMA DASHBOARD ---
+Widget _buildDashboardMainContent() {
+  const Color primaryBlue = Color(0xFF02182F);
+  const Color softGrey = Color(0xFFC9D0D6);
 
-    return Column( // Menggunakan Column utama agar bagian atas tidak ikut tergulung
+  return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-    // --- BAGIAN STATIS (TIDAK BISA SCROLL) ---
-    Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 25),
-    child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-    const SizedBox(height: 70),
-    _buildHeader(),
-    const SizedBox(height: 38), 
-    _buildStatSection(softGrey),
-    const SizedBox(height: 40),
-    _buildGraphTitle(primaryBlue),
-    const SizedBox(height: 30),
-    _buildChartSection(primaryBlue, softGrey),
-    const SizedBox(height: 40), // Jarak sebelum masuk area scroll
-    _buildActivityHeader(softGrey),
-    const SizedBox(height: 15),
-    ],
-    ),
-    ),
+      // --- BAGIAN STATIS (TIDAK BISA SCROLL) ---
+      // Kita hapus Padding(horizontal: 25) yang membungkus Column ini
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 70),
+          
+          // _buildHeader dipanggil langsung tanpa bungkus padding luar lagi
+          // karena di dalam _buildHeader sudah ada padding 25.
+          _buildHeader(), 
+          
+          const SizedBox(height: 38), 
 
-    // --- BAGIAN DINAMIS (HANYA INI YANG BISA SCROLL) ---
-    Expanded(
-    child: SingleChildScrollView(
-    padding: const EdgeInsets.symmetric(horizontal: 25),
-    child: Column(
-    children: [
-    _buildActivityItem("Ailen", "12/01/2026", "Petugas", primaryBlue),
-    _buildActivityItem("Monica", "12/01/2026", "Peminjam", const Color(0xFFADB5BD)),
-    _buildActivityItem("Rian", "13/01/2026", "Peminjam", const Color(0xFFADB5BD)),
-    _buildActivityItem("Siska", "14/01/2026", "Petugas", primaryBlue),
-                    
-    // Ruang ekstra di bawah agar tidak tertutup BottomNav
-    const SizedBox(height: 120), 
+          // Berikan padding horizontal 25 hanya untuk bagian di bawah header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 25),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatSection(softGrey),
+                const SizedBox(height: 40),
+                _buildGraphTitle(primaryBlue),
+                const SizedBox(height: 30),
+                _buildChartSection(primaryBlue, softGrey),
+                const SizedBox(height: 40), 
+                _buildActivityHeader(softGrey),
+              ],
+            ),
+          ),
+          const SizedBox(height: 15),
+        ],
+      ),
+
+      // --- BAGIAN DINAMIS (HANYA INI YANG BISA SCROLL) ---
+      Expanded(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 25),
+          child: Column(
+            children: [
+              _buildActivityItem("Ailen", "12/01/2026", "Petugas", primaryBlue),
+              _buildActivityItem("Monica", "12/01/2026", "Peminjam", const Color(0xFFADB5BD)),
+              _buildActivityItem("Rian", "13/01/2026", "Peminjam", const Color(0xFFADB5BD)),
+              _buildActivityItem("Siska", "14/01/2026", "Petugas", primaryBlue),
+              const SizedBox(height: 120), 
+            ],
+          ),
+        ),
+      ),
     ],
-    ),
-    ),
-    ),
-    ],
-    );
-    }
+  );
+}
 
       // --- WIDGET KOMPONEN LAINNYA (TETAP SAMA) ---
 
       Widget _buildHeader() {
-        return Row(
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 25),
+    child: Row(
+      children: [
+        // TAMBAHKAN GestureDetector DISINI
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilScreen()),
+            );
+          },
+          child: const CircleAvatar(
+            radius: 35,
+            backgroundColor: Color(0xFF424242),
+            child: Icon(Icons.person, size: 45, color: Colors.white),
+          ),
+        ),
+        const SizedBox(width: 15),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
-              radius: 35,
-              backgroundColor: Color(0xFF424242),
-              child: Icon(Icons.person, size: 45, color: Colors.white),
+            Text(
+              "Hi, $userName!",
+              style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black),
             ),
-            const SizedBox(width: 15),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Hi, $userName!", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text(userRole, style: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF6C757D), fontWeight: FontWeight.w500)),
-              ],
+            Text(
+              userRole,
+              style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: const Color(0xFF6C757D),
+                  fontWeight: FontWeight.w500),
             ),
           ],
-        );
-      }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildStatSection(Color color) {
     return Row(
