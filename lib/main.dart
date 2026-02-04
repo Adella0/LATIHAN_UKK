@@ -3,13 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_routes.dart';
 
 void main() async {
-  // 1. Inisialisasi binding Flutter agar plugin dapat berjalan sebelum runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Inisialisasi Supabase menggunakan URL dan Anon Key Anda
   await Supabase.initialize(
     url: 'https://rnnoextdauvjomslctcn.supabase.co',
-    anonKey: 'sb_publishable__CzlJitG8VMKtzjUNKirVw_T3Pb0bJF', // Pastikan key ini terbaru dari dashboard Supabase
+    anonKey: 'sb_publishable__CzlJitG8VMKtzjUNKirVw_T3Pb0bJF', // Masukkan key asli kamu
   );
 
   runApp(const MyApp());
@@ -23,8 +21,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'SarprasGo',
-      initialRoute: '/', // Mengarah ke SplashScreen
-      routes: AppRoutes.routes, // Memuat rute dari file AppRoutes yang sudah diupdate
+      initialRoute: AppRoutes.initial, // Ini akan membuka LoginScreen (sesuai setting di AppRoutes)
+      routes: AppRoutes.routes,
       theme: ThemeData(
         useMaterial3: true,
       ),

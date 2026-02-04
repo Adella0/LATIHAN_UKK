@@ -17,9 +17,16 @@ class _LoginScreenState extends State<LoginScreen> {
   // Fungsi Login logic
  // Cari bagian _handleLogin() dan pastikan logikanya seperti ini:
 Future<void> _handleLogin() async {
-  // ... (kode validasi email/pass tetap sama) ...
+  // Validasi input kosong
+  if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Email dan Password tidak boleh kosong")),
+    );
+    return;
+  }
 
   setState(() => _isLoading = true);
+
   try {
     final response = await Supabase.instance.client.auth.signInWithPassword(
       email: _emailController.text.trim(),
@@ -28,26 +35,32 @@ Future<void> _handleLogin() async {
 
     final user = response.user;
     if (user != null) {
-      // Ambil data role
+      // Ambil data role dari tabel users
       final responseData = await Supabase.instance.client
           .from('users')
           .select('role')
-          .eq('id_user', user.id);
+          .eq('id_user', user.id)
+          .maybeSingle(); // Menggunakan maybeSingle agar lebih aman jika data tidak ada
 
-      if (responseData.isNotEmpty) {
-        // Normalisasi teks role (huruf kecil & tanpa spasi)
-        String roleFromDb = responseData[0]['role'].toString().trim().toLowerCase();
+      if (responseData != null && responseData['role'] != null) {
+        // Normalisasi teks role: admin, petugas, atau peminjam
+        String roleFromDb = responseData['role'].toString().trim().toLowerCase();
         
         if (mounted) {
-          // Navigasi dinamis: akan ke /dashboard_admin, /dashboard_petugas, atau /dashboard_peminjam
+          // Navigasi ke route yang sesuai di main.dart
+          // Contoh: '/dashboard_admin'
           Navigator.pushReplacementNamed(context, '/dashboard_$roleFromDb');
         }
       } else {
-        throw "User terdaftar di Auth, tapi data di tabel 'users' tidak ditemukan. Cek UUID di database.";
+        throw "Data user tidak ditemukan di database.";
       }
     }
   } catch (e) {
-    // ... (kode snackbar error tetap sama)
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Login Gagal: ${e.toString()}")),
+      );
+    }
   } finally {
     if (mounted) setState(() => _isLoading = false);
   }

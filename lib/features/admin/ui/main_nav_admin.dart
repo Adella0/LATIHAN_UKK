@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// Import semua halaman yang dibutuhkan
-import '../dashboard/dashboard_admin_screen.dart';
+import '../dashboard/dashboard_admin_screen.dart'; // Sesuaikan path dashboard Anda
 import '../manage_alat/list_alat_screen.dart';
 import '../manage_user/List_pengguna.dart';
-import '../dashboard/daftar_riwayat_aktivitas.dart';
 
 class MainNavAdmin extends StatefulWidget {
   const MainNavAdmin({super.key});
@@ -14,51 +12,45 @@ class MainNavAdmin extends StatefulWidget {
 }
 
 class _MainNavAdminState extends State<MainNavAdmin> {
-  // Pindahkan logika index ke sini
   int _selectedIndex = 0;
+  final Color primaryBlue = const Color(0xFF02182F);
 
-  // List halaman yang akan dipanggil sesuai urutan icon di navbar
+  // Daftar halaman yang akan ditampilkan
   final List<Widget> _pages = [
     const DashboardAdminScreen(),
     const ListAlatScreen(),
     const ListPenggunaScreen(),
-    const DaftarRiwayatAktivitas(),
+    const Center(child: Text("Halaman Ringkasan Aktivitas")),
   ];
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF02182F);
-
     return Scaffold(
       backgroundColor: Colors.white,
-      // SafeArea ditaruh di sini agar konten tidak tertutup notch HP
-      body: SafeArea(
-        bottom: false, // Supaya konten bisa sedikit "tembus" ke belakang navbar
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: _pages,
-        ),
+      // Menggunakan IndexedStack agar state halaman (scroll, data) tidak reset saat pindah tab
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _pages,
       ),
-      extendBody: true, // PENTING: Supaya navbar melengkung tidak memotong body
-      bottomNavigationBar: _buildBottomNav(primaryBlue),
+      extendBody: true,
+      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // --- Ambil fungsi _buildBottomNav dari dashboard Anda tadi dan pindahkan ke sini ---
-  Widget _buildBottomNav(Color blue) {
+  Widget _buildBottomNav() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(25, 0, 25, 10), 
-      height: 80, 
+      margin: const EdgeInsets.fromLTRB(25, 0, 25, 20), // Jarak bawah ditambah agar tidak terlalu mepet
+      height: 80,
       decoration: BoxDecoration(
-        color: blue, 
-        borderRadius: BorderRadius.circular(40), 
+        color: primaryBlue,
+        borderRadius: BorderRadius.circular(40),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 5),
-          )
-        ]
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -78,31 +70,34 @@ class _MainNavAdminState extends State<MainNavAdmin> {
     return GestureDetector(
       onTap: () {
         setState(() {
-          _selectedIndex = index; 
+          _selectedIndex = index;
         });
       },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: Colors.white, size: 28), 
+          Icon(icon, color: Colors.white, size: 28), // Diperkecil sedikit agar proporsional
           const SizedBox(height: 4),
           Text(
-            label, 
+            label,
             style: GoogleFonts.poppins(
-              color: Colors.white, 
-              fontSize: 10, 
-              fontWeight: isActive ? FontWeight.bold : FontWeight.w400
-            )
-          ), 
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+            ),
+          ),
           if (isActive)
             Container(
               margin: const EdgeInsets.only(top: 4),
               height: 2.5,
-              width: 30,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2)),
+              width: 25,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(2),
+              ),
             )
           else
-            const SizedBox(height: 6.5), 
+            const SizedBox(height: 6.5),
         ],
       ),
     );
