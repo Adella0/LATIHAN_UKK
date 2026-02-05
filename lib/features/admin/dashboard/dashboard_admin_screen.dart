@@ -225,7 +225,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text("Riwayat aktivitas", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+        Text("Log aktivitas", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
         TextButton(
           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DaftarRiwayatAktivitas())),
           child: const Text("Detail >", style: TextStyle(color: Colors.black, fontSize: 12)),
