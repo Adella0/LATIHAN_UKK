@@ -30,11 +30,10 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
     _loadUserData();
   }
 
-  // LOGIKA HAPUS DATA KE SUPABASE
   Future<void> _hapusDataAlat(int id) async {
     try {
       await supabase.from('alat').delete().eq('id_alat', id);
-      _fetchInitialData(); // Refresh list
+      _fetchInitialData(); 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Alat berhasil dihapus")),
@@ -90,7 +89,7 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 70), 
+            const SizedBox(height: 40), 
             _buildHeader(),
             const SizedBox(height: 28),
             _buildSearchBar(),
@@ -128,7 +127,7 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
                 ).then((value) => _fetchInitialData());
               },
             ),
-            const SizedBox(height: 40), 
+            const SizedBox(height: 100), // Memberi ruang agar tidak tertutup Navbar
           ],
         ),
       ),
@@ -136,49 +135,17 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
   }
 
  Widget _buildHeader() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 25),
-    child: Row(
-      children: [
-        // TAMBAHKAN GestureDetector DISINI
-        GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilScreen()),
-            );
-          },
-          child: const CircleAvatar(
-            radius: 35,
-            backgroundColor: Color(0xFF424242),
-            child: Icon(Icons.person, size: 45, color: Colors.white),
-          ),
+    return Center( // Menggunakan Center agar judul berada tepat di tengah sesuai gambar
+      child: Text(
+        "Alat",
+        style: GoogleFonts.poppins(
+          fontSize: 24, // Ukuran font lebih besar untuk judul utama
+          fontWeight: FontWeight.w400,
+          color: const Color(0xFF02182F),
         ),
-        const SizedBox(width: 15),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Hi, $userName!",
-              style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black),
-            ),
-            Text(
-              userRole,
-              style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: const Color(0xFF6C757D),
-                  fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
+      ),
+    );
+  }
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -204,7 +171,7 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
         physics: const BouncingScrollPhysics(),
         itemCount: categories.length + 1,
         itemBuilder: (context, index) {
-          String name = index == 0 ? "All" : categories[index - 1]['nama_kategori'];
+          String name = index == 0 ? "All" : (categories[index - 1]['nama_kategori'] ?? "Uncategorized");
           bool isSelected = selectedKategori == name;
 
           return GestureDetector(
@@ -298,7 +265,6 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
                   _buildCardFooter(item, isAvailable),
                 ],
               ),
-              // TOMBOL HAPUS
               Positioned(
                 top: 8, left: 8,
                 child: GestureDetector(
@@ -332,11 +298,12 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             children: [
-              Expanded(child: Text("Stok : ${item['stok_total']} unit", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF02182F)))),
+              Expanded(child: Text("Stok : ${item['stok_total'] ?? 0} unit", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF02182F)))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: isAvailable ? const Color(0xFF1ED72D) : const Color(0xFFE52121), borderRadius: BorderRadius.circular(6)),
-                child: Text(item['status_ketersediaan'].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900)),
+                // PERBAIKAN: Tambahkan Null Check sebelum toUpperCase()
+                child: Text((item['status_ketersediaan'] ?? "Kosong").toString().toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900)),
               ),
             ],
           ),
@@ -346,7 +313,8 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
           child: Container(
             width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(color: const Color(0xFF02182F), borderRadius: BorderRadius.circular(10)),
-            child: Text(item['nama_alat'], textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+            // PERBAIKAN: Tambahkan Null Check untuk nama alat
+            child: Text(item['nama_alat'] ?? "Tanpa Nama", textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
         ),
       ],
@@ -361,7 +329,7 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(color: const Color(0xFF02182F), borderRadius: BorderRadius.circular(12)),
         child: Text(
-          categories.firstWhere((c) => c['id_kategori'] == item['kategori_id'], orElse: () => {'nama_kategori': 'Umum'})['nama_kategori'],
+          categories.firstWhere((c) => c['id_kategori'] == item['kategori_id'], orElse: () => {'nama_kategori': 'Umum'})['nama_kategori'] ?? 'Umum',
           maxLines: 1, overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
         ),
