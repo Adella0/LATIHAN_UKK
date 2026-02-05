@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'tambah_alat.dart'; 
 import 'tambah_kategori.dart'; 
-import '../ui/profil.dart';
 
 class ListAlatScreen extends StatefulWidget {
   const ListAlatScreen({super.key});
