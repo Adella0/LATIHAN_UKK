@@ -3,8 +3,8 @@ import 'package:apk_peminjaman/features/admin/manage_alat/hapus_alat.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'tambah_alat.dart'; 
 import 'tambah_kategori.dart'; 
+import '../manage_alat/tambah_alat.dart';
 
 class ListAlatScreen extends StatefulWidget {
   const ListAlatScreen({super.key});
@@ -29,20 +29,34 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
     _loadUserData();
   }
 
-  Future<void> _hapusDataAlat(int id) async {
-    try {
-      await supabase.from('alat').delete().eq('id_alat', id);
-      _fetchInitialData(); 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Alat berhasil dihapus")),
-        );
-      }
-    } catch (e) {
-      debugPrint("Error hapus data: $e");
+  // --- LOGIKA HAPUS DI DALAM STATE ---
+Future<void> _hapusDataAlat(int id) async {
+  try {
+    // 1. Jalankan perintah hapus ke Supabase
+    await supabase.from('alat').delete().eq('id_alat', id);
+    
+    // 2. Refresh UI
+    setState(() {
+       // Memicu build ulang untuk mengambil data terbaru
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Alat berhasil dihapus"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  } catch (e) {
+    debugPrint("Error hapus data: $e");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal menghapus: $e"), backgroundColor: Colors.red),
+      );
     }
   }
-
+}
   Future<void> _loadUserData() async {
     try {
       final user = supabase.auth.currentUser;
@@ -336,24 +350,48 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
     );
   }
 
-  Widget _buildFabCustom({required IconData icon, required String label, required VoidCallback onTap}) {
-    return GestureDetector(
+ Widget _buildFabCustom({required IconData icon, required String label, required VoidCallback onTap}) {
+  return Material(
+    color: Colors.transparent, // Agar background lingkaran tetap terlihat
+    child: InkWell(
       onTap: onTap,
+      customBorder: const CircleBorder(), // Memastikan efek klik berbentuk lingkaran
       child: Container(
-        width: 65, height: 65,
+        width: 65,
+        height: 65,
         decoration: BoxDecoration(
-          color: const Color(0xFF02182F), shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+          color: const Color(0xFF02182F),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: Colors.white, size: 28),
             const SizedBox(height: 2),
-            Text(label, textAlign: TextAlign.center, style: GoogleFonts.poppins(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w600, height: 1)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 7,
+                  fontWeight: FontWeight.w600,
+                  height: 1.1,
+                ),
+              ),
+            ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

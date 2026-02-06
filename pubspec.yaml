@@ -20,17 +20,19 @@ version: 1.0.0+1
 
 # Bagian atas biarkan saja
 environment:
-  sdk: ^3.1.0
+  sdk: '>=3.0.0 <4.0.0' # Ganti baris ini! Jangan pakai 2.0.0 lagi.
 
 # Dependencies harus menempel ke kiri (0 spasi)
 dependencies:
   flutter:
     sdk: flutter
 
-  # Tambahkan library di sini (2 spasi dari kiri)
+  # Library yang kamu butuhkan
   supabase_flutter: ^2.0.0
-  flutter_lints: ^5.0.0
   google_fonts: ^6.2.1
+  image_picker: ^1.1.2 # Sejajarkan spasi dengan yang lain
+  cupertino_icons: ^1.0.6
+  flutter_lints: ^5.0.0
 
 # Dev dependencies juga menempel ke kiri
 dev_dependencies:
