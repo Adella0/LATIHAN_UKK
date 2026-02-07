@@ -12,7 +12,7 @@ class AppRoutes {
   static Map<String, WidgetBuilder> routes = {
     '/': (context) => const SplashScreen(),
     '/login': (context) => const LoginScreen(),
-    '/dashboard_admin': (context) => const MainNavAdmin(),
+    '/dashboard_admin': (context) => const MainNav(),
     '/dashboard_petugas': (context) => const DashboardPetugasScreen(),
     '/dashboard_peminjam': (context) => const DashboardPeminjamScreen(),
   };
