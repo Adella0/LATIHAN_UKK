@@ -1,8 +1,12 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart'; 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DetailAlatScreen extends StatefulWidget {
-  final Map<String, dynamic> alatData; // Data dari card yang dipencet
+  final Map<String, dynamic> alatData;
 
   const DetailAlatScreen({super.key, required this.alatData});
 
@@ -11,158 +15,222 @@ class DetailAlatScreen extends StatefulWidget {
 }
 
 class _DetailAlatScreenState extends State<DetailAlatScreen> {
+  final SupabaseClient supabase = Supabase.instance.client;
   late TextEditingController _namaController;
   late TextEditingController _stokController;
   String? _selectedKategori;
+  File? _imageFile; 
+  Uint8List? _webImage; 
+  bool _isLoading = false;
 
-  // List kategori harus sinkron dengan tabel 'kategori' di DB
-  final List<String> _kategoriList = ["Elektronik", "Olahraga", "Alat musik", "Umum"];
+  // 1. DAFTAR KATEGORI (Pastikan sama persis dengan tabel kategori di DB)
+  final List<String> _kategoriList = [
+    "Elektronik", 
+    "Olahraga", 
+    "Alat musik", 
+    "bebas", 
+    "YYYYY"
+  ];
 
   @override
-  void initState() {
-    super.initState();
-    // LOGIKA 1: Field otomatis terisi dari tabel 'alat'
-    _namaController = TextEditingController(text: widget.alatData['nama_alat']);
-    _stokController = TextEditingController(text: widget.alatData['stok_total'].toString());
+void initState() {
+  super.initState();
+  
+  _namaController = TextEditingController(text: widget.alatData['nama_alat']?.toString() ?? '');
+  _stokController = TextEditingController(text: widget.alatData['stok_total']?.toString() ?? '0');
+  
+  // Ambil ID Kategori dari database (pasti berupa angka)
+  // Berdasarkan gambar database kamu, nama kolomnya adalah 'kategori_id'
+  var idKategoriDb = widget.alatData['kategori_id'];
+
+  if (idKategoriDb != null) {
+    // Karena id_kategori di database kamu mulai dari 1, 2, 3, 6, 7 (sesuai gambar)
+    // Kita harus mencocokkan ID tersebut dengan teks yang benar.
     
-    // LOGIKA: Kategori otomatis terisi sesuai database
-    if (_kategoriList.contains(widget.alatData['nama_kategori'])) {
-      _selectedKategori = widget.alatData['nama_kategori'];
+    setState(() {
+      if (idKategoriDb == 1) _selectedKategori = "Elektronik";
+      else if (idKategoriDb == 2) _selectedKategori = "Olahraga";
+      else if (idKategoriDb == 3) _selectedKategori = "Alat musik";
+      else if (idKategoriDb == 6) _selectedKategori = "bebas";
+      else if (idKategoriDb == 7) _selectedKategori = "YYYYY";
+    });
+  }
+  
+  debugPrint("DEBUG: ID Kategori dari DB adalah $idKategoriDb, terpilih: $_selectedKategori");
+}
+
+  Future<void> _pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+
+      if (pickedFile != null) {
+        if (kIsWeb) {
+          final bytes = await pickedFile.readAsBytes();
+          setState(() => _webImage = bytes);
+        } else {
+          setState(() => _imageFile = File(pickedFile.path));
+        }
+      }
+    } catch (e) {
+      debugPrint("Gagal ambil gambar: $e");
     }
   }
 
-  // --- FUNGSI UPDATE DATABASE ---
-  Future<void> _updateAlat() async {
-    // Di sini kamu panggil fungsi Supabase/Provider/API kamu
-    // Contoh logic:
-    // await supabase.from('alat').update({
-    //   'nama_alat': _namaController.text,
-    //   'stok_total': int.parse(_stokController.text),
-    //   'kategori_id': ... (ambil ID dari kategori terpilih)
-    // }).eq('id_alat', widget.alatData['id_alat']);
-    
-    Navigator.pop(context, true); // Kembali dan refresh list
+  // 3. PERBAIKAN FUNGSI SIMPAN (UPDATE)
+ Future<void> _updateAlat() async {
+  setState(() => _isLoading = true);
+  
+  try {
+    // 1. Simpan URL foto yang sudah ada sebagai default
+    String? newFotoUrl = widget.alatData['foto_url']; 
+
+    // 2. JIKA ADA GAMBAR BARU, UPLOAD KE BUCKET 'gambar_alat_ukk'
+  // JIKA ADA GAMBAR BARU, UPLOAD KE BUCKET 'gambar_alat_ukk'
+    if (_imageFile != null || _webImage != null) {
+      final fileName = "alat_${DateTime.now().millisecondsSinceEpoch}.jpg";
+      
+      if (kIsWeb && _webImage != null) {
+        // GUNAKAN uploadBinary untuk versi Web
+        await supabase.storage.from('gambar_alat_ukk').uploadBinary(fileName, _webImage!);
+      } else if (_imageFile != null) {
+        // Tetap gunakan upload untuk Mobile
+        await supabase.storage.from('gambar_alat_ukk').upload(fileName, _imageFile!);
+      }
+      
+      // Ambil URL publik
+      newFotoUrl = supabase.storage.from('gambar_alat_ukk').getPublicUrl(fileName);
+    }
+
+    // 3. LOGIKA ID KATEGORI (Tetap seperti sebelumnya)
+    int idUntukDb = 1; 
+    if (_selectedKategori == "Olahraga") idUntukDb = 2;
+    else if (_selectedKategori == "Alat musik") idUntukDb = 3;
+    else if (_selectedKategori == "bebas") idUntukDb = 6;
+    else if (_selectedKategori == "YYYYY") idUntukDb = 7;
+
+    // 4. UPDATE DATABASE (Sekarang foto_url ikut diupdate)
+   // 4. UPDATE DATABASE
+    await supabase.from('alat').update({
+      'nama_alat': _namaController.text,
+      'stok_total': int.tryParse(_stokController.text) ?? 0,
+      'kategori_id': idUntukDb,
+      'foto_url': newFotoUrl, 
+    }).eq('id_alat', widget.alatData['id_alat']);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Data Berhasil Diperbarui!")),
+      );
+      // KUNCINYA DI SINI: Harus kirim 'true' agar halaman List tahu ada perubahan
+      Navigator.pop(context, true); 
+    }
+  } catch (e) {
+    print("Error Update: $e");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal Update: $e")),
+      );
+    }
+  } finally {
+    setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
     const Color darkBlue = Color(0xFF02182F);
-
+    
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: _isLoading 
+          ? const Center(child: CircularProgressIndicator(color: darkBlue))
+          : SingleChildScrollView(
           child: Column(
             children: [
-              const SizedBox(height: 30),
-              // HEADER
+              const SizedBox(height: 20),
+              // --- HEADER ---
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 25),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: const BoxDecoration(
-                          color: darkBlue,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(color: darkBlue, shape: BoxShape.circle),
+                        child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 16),
                       ),
                     ),
                     Expanded(
                       child: Center(
                         child: Text(
                           "Detail alat",
-                          style: GoogleFonts.poppins(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: darkBlue,
-                          ),
+                          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: darkBlue),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 45), 
+                    const SizedBox(width: 40), 
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 30),
 
-              // BOX GAMBAR (Sesuai Gambar 11499b.png)
+              // --- TAMPILAN GAMBAR ---
               Container(
-                height: 180,
-                width: 180,
+                height: 150,
+                width: 150,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: Colors.black12, width: 1.5),
-                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: Colors.black12, width: 1),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(15),
-                  child: widget.alatData['foto_url'] != null
-                      ? Image.network(widget.alatData['foto_url'], fit: BoxFit.contain)
-                      : const Icon(Icons.image, size: 80, color: Colors.grey),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: _displayImage(),
                 ),
               ),
-              const SizedBox(height: 25),
+              const SizedBox(height: 20),
 
-              // TOMBOL UBAH GAMBAR (Shadow Tebal & Ikon +)
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: () {}, // Logika ganti file gambar
-                  icon: const Icon(Icons.add_circle, color: Colors.white, size: 24),
-                  label: Text(
-                    "Ubah gambar",
-                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: darkBlue,
-                    padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    elevation: 0,
-                  ),
+              ElevatedButton.icon(
+                onPressed: _pickImage,
+                icon: const Icon(Icons.add_circle, color: Colors.white, size: 20),
+                label: Text("Ubah gambar", style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: darkBlue,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 30),
 
-              // --- BAGIAN FORM (Padding 35 agar tidak terlalu mepet) ---
+              // --- FORM INPUT ---
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 35),
+                padding: const EdgeInsets.symmetric(horizontal: 30),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildLabel("Nama"),
-                    _buildTextField(_namaController, "Proyektor"),
-                    const SizedBox(height: 20),
+                    _buildTextField(_namaController, "Nama Alat"),
+                    const SizedBox(height: 15),
                     
                     _buildLabel("Stok"),
-                    _buildTextField(_stokController, "5", isNumber: true),
-                    const SizedBox(height: 20),
+                    _buildTextField(_stokController, "Jumlah Stok", isNumber: true),
+                    const SizedBox(height: 15),
                     
                     _buildLabel("Kategori"),
                     _buildDropdown(),
-                    const SizedBox(height: 50),
+                    const SizedBox(height: 40),
 
-                    // TOMBOL BATAL & SIMPAN
+                    // TOMBOL AKSI
                     Row(
                       children: [
                         Expanded(child: _buildButton("Batal", const Color(0xFFC9D0D6), darkBlue, () => Navigator.pop(context))),
-                        const SizedBox(width: 20),
+                        const SizedBox(width: 15),
                         Expanded(child: _buildButton("Simpan", darkBlue, Colors.white, _updateAlat)),
                       ],
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
@@ -173,14 +241,24 @@ class _DetailAlatScreenState extends State<DetailAlatScreen> {
     );
   }
 
-  // --- HELPER WIDGETS ---
+  // Handle tampilan gambar agar tidak error di Web maupun Mobile
+  Widget _displayImage() {
+    if (kIsWeb && _webImage != null) {
+      return Image.memory(_webImage!, fit: BoxFit.cover);
+    } else if (!kIsWeb && _imageFile != null) {
+      return Image.file(_imageFile!, fit: BoxFit.cover);
+    } else if (widget.alatData['foto_url'] != null) {
+      return Image.network(widget.alatData['foto_url'], fit: BoxFit.contain, 
+        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 60));
+    } else {
+      return const Icon(Icons.image, size: 60, color: Colors.grey);
+    }
+  }
+
   Widget _buildLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
-      ),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(text, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black)),
     );
   }
 
@@ -188,35 +266,28 @@ class _DetailAlatScreenState extends State<DetailAlatScreen> {
     return TextField(
       controller: controller,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      style: GoogleFonts.poppins(fontSize: 16),
+      style: GoogleFonts.poppins(fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Colors.black54), 
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Color(0xFF02182F), width: 2),
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
   Widget _buildDropdown() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.black54),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black26),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedKategori,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black, size: 35),
-          items: _kategoriList.map((e) => DropdownMenuItem(value: e, child: Text(e, style: GoogleFonts.poppins()))).toList(),
+          hint: const Text("Pilih Kategori"),
+          items: _kategoriList.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: (v) => setState(() => _selectedKategori = v),
         ),
       ),
@@ -224,23 +295,14 @@ class _DetailAlatScreenState extends State<DetailAlatScreen> {
   }
 
   Widget _buildButton(String label, Color bg, Color txt, VoidCallback onTap) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: bg,
+        minimumSize: const Size(double.infinity, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
       ),
-      child: ElevatedButton(
-        onPressed: onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: bg,
-          minimumSize: const Size(double.infinity, 52),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-          elevation: 0,
-        ),
-        child: Text(label, style: GoogleFonts.poppins(color: txt, fontSize: 16, fontWeight: FontWeight.bold)),
-      ),
+      child: Text(label, style: GoogleFonts.poppins(color: txt, fontSize: 14, fontWeight: FontWeight.bold)),
     );
   }
 }

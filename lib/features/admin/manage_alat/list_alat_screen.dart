@@ -29,19 +29,35 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
     _loadUserData();
   }
 
-  Future<void> _hapusDataAlat(int id) async {
-    try {
-      await supabase.from('alat').delete().eq('id_alat', id);
-      _fetchInitialData(); 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Alat berhasil dihapus")),
-        );
-      }
-    } catch (e) {
-      debugPrint("Error hapus data: $e");
-    }
+  // LOGIKA HAPUS (Langkah A)
+  Future<void> _prosesHapusAlat(int? idAlat) async {
+  // Validasi: Jika ID null, jangan lakukan apa-apa!
+  if (idAlat == null) {
+    debugPrint("Error: ID Alat tidak ditemukan!");
+    return;
   }
+
+  try {
+    // Perintah hapus harus sangat spesifik menggunakan .eq()
+    final response = await supabase
+        .from('alat')
+        .delete()
+        .eq('id_alat', idAlat); // Pastikan nama kolom di DB adalah 'id_alat'
+
+    debugPrint("Berhasil menghapus alat dengan ID: $idAlat");
+
+    // REFRESH DATA setelah hapus
+    await _fetchInitialData(); 
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Alat dengan ID $idAlat berhasil dihapus")),
+      );
+    }
+  } catch (e) {
+    debugPrint("Gagal hapus: $e");
+  }
+}
 
   Future<void> _loadUserData() async {
     try {
@@ -126,25 +142,26 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
                 ).then((value) => _fetchInitialData());
               },
             ),
-            const SizedBox(height: 100), // Memberi ruang agar tidak tertutup Navbar
+            const SizedBox(height: 100),
           ],
         ),
       ),
     );
   }
 
- Widget _buildHeader() {
-    return Center( // Menggunakan Center agar judul berada tepat di tengah sesuai gambar
+  Widget _buildHeader() {
+    return Center(
       child: Text(
         "Alat",
         style: GoogleFonts.poppins(
-          fontSize: 24, // Ukuran font lebih besar untuk judul utama
+          fontSize: 24,
           fontWeight: FontWeight.w400,
           color: const Color(0xFF02182F),
         ),
       ),
     );
   }
+
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -199,95 +216,116 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
     );
   }
 
-  Widget _buildAlatGrid() {
-    return FutureBuilder(
-      future: supabase.from('alat').select(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || (snapshot.data as List).isEmpty) return const Center(child: Text("Tidak ada data alat"));
+ Widget _buildAlatGrid() {
+  return FutureBuilder(
+    // Kita panggil select() langsung di sini
+    future: supabase.from('alat').select().order('id_alat', ascending: false),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+      
+      if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
 
-        final dataAlat = snapshot.data as List<dynamic>;
-        final filteredAlat = selectedKategori == "All"
-            ? dataAlat
-            : dataAlat.where((a) {
-                final cat = categories.firstWhere((c) => c['nama_kategori'] == selectedKategori, orElse: () => {});
-                return a['kategori_id'] == cat['id_kategori'];
-              }).toList();
+      if (!snapshot.hasData || (snapshot.data as List).isEmpty) return const Center(child: Text("Tidak ada data alat"));
 
-        return GridView.builder(
-          padding: const EdgeInsets.only(left: 25, right: 25, bottom: 100, top: 10),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.75,
-            crossAxisSpacing: 15,
-            mainAxisSpacing: 15,
-          ),
-          itemCount: filteredAlat.length,
-          itemBuilder: (context, index) => _buildAlatCard(filteredAlat[index]),
-        );
-      },
-    );
-  }
+      final dataAlat = snapshot.data as List<dynamic>;
+      
+      // Filter Kategori
+      final filteredAlat = selectedKategori == "All"
+          ? dataAlat
+          : dataAlat.where((a) {
+              final cat = categories.firstWhere((c) => c['nama_kategori'] == selectedKategori, orElse: () => {});
+              return a['kategori_id'] == cat['id_kategori'];
+            }).toList();
+
+      return GridView.builder(
+        // TRIK: Memberikan key yang berubah-ubah agar GridView dipaksa refresh
+        key: UniqueKey(), 
+        padding: const EdgeInsets.all(25),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.75,
+          crossAxisSpacing: 15,
+          mainAxisSpacing: 15,
+        ),
+        itemCount: filteredAlat.length,
+        itemBuilder: (context, index) => _buildAlatCard(filteredAlat[index]),
+      );
+    },
+  );
+}
 
   Widget _buildAlatCard(dynamic item) {
-    bool isAvailable = item['status_ketersediaan'] == 'Tersedia';
+  bool isAvailable = item['status_ketersediaan'] == 'Tersedia';
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => DetailAlatScreen(alatData: item)),
-        ).then((value) => _fetchInitialData());
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFFBDBDBD), width: 1.5),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 45, 10, 5),
-                      child: Center(
-                        child: item['foto_url'] != null
-                            ? Image.network(item['foto_url'], fit: BoxFit.contain)
-                            : const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
-                      ),
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFFBDBDBD), width: 1.5),
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(15),
+      child: Stack(
+        children: [
+          // 1. AREA DETAIL (Klik di mana saja kecuali tombol hapus)
+         GestureDetector(
+  onTap: () async {
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => DetailAlatScreen(alatData: item)),
+  );
+
+  if (result == true) {
+    // Ini akan memicu fungsi build() jalan lagi dan FutureBuilder narik data baru
+    setState(() {}); 
+  }
+},
+  child: Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 45, 10, 5),
+                    child: Center(
+                      child: item['foto_url'] != null
+                          ? Image.network(item['foto_url'], fit: BoxFit.contain)
+                          : const Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
                     ),
                   ),
-                  _buildCardFooter(item, isAvailable),
-                ],
-              ),
-              Positioned(
-                top: 8, left: 8,
-                child: GestureDetector(
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => HapusAlatDialog(
-                        onConfirm: () => _hapusDataAlat(item['id_alat']),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: const BoxDecoration(color: Color(0xFF02182F), shape: BoxShape.circle),
-                    child: const Icon(Icons.delete_outline, color: Colors.white, size: 16),
-                  ),
                 ),
-              ),
-              _buildCategoryBadge(item),
-            ],
+                _buildCardFooter(item, isAvailable),
+              ],
+            ),
           ),
-        ),
-      ),
-    );
+
+          // 2. TOMBOL HAPUS (Hanya aktif jika klik ikon sampah)
+          Positioned(
+            top: 8,
+            left: 8,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque, // Memastikan klik tidak tembus ke bawah
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => HapusAlatDialog(
+                    onConfirm: () => _prosesHapusAlat(item['id_alat']), 
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF02182F), 
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
+        ]
+    )
+  )
+  );
+
   }
 
   Widget _buildCardFooter(dynamic item, bool isAvailable) {
@@ -301,7 +339,6 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: isAvailable ? const Color(0xFF1ED72D) : const Color(0xFFE52121), borderRadius: BorderRadius.circular(6)),
-                // PERBAIKAN: Tambahkan Null Check sebelum toUpperCase()
                 child: Text((item['status_ketersediaan'] ?? "Kosong").toString().toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.w900)),
               ),
             ],
@@ -312,7 +349,6 @@ class _ListAlatScreenState extends State<ListAlatScreen> {
           child: Container(
             width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(color: const Color(0xFF02182F), borderRadius: BorderRadius.circular(10)),
-            // PERBAIKAN: Tambahkan Null Check untuk nama alat
             child: Text(item['nama_alat'] ?? "Tanpa Nama", textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
         ),
