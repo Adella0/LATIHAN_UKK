@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,7 +12,7 @@ class DashboardAdminScreen extends StatefulWidget {
 }
 
 class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
-  String userName = ""; 
+  String userName = "";
   String userRole = "";
   bool isLoading = true;
 
@@ -46,7 +45,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
         final rusakRes = await supabase.from('alat').select('id_alat').eq('kondisi', 'Rusak');
 
         setState(() {
-          userName = userData['nama'] ?? "Admin1"; 
+          userName = userData['nama'] ?? "Admin1";
           userRole = userData['role'] ?? "Admin";
           totalAlat = totalRes.length.toString();
           pinjamanAktif = pinjamRes.length.toString();
@@ -63,6 +62,51 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     }
   }
 
+  // --- FUNGSI POP-UP DETAIL LOG ---
+  void _showDetailPopup(String nama, String tanggal, String role) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Detail Riwayat", 
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDetailRow("Nama", nama),
+            _buildDetailRow("Tanggal", tanggal),
+            _buildDetailRow("Role", role),
+            _buildDetailRow("Status", "Selesai"),
+          ],
+        ),
+        actions: [
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Tutup", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: const Color(0xFF02182F))),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 70, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold))),
+          const Text(": "),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,16 +117,15 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 25), // 1. Space atas dikurangi (Desain lebih naik)
+                  const SizedBox(height: 25),
                   _buildHeader(),
                   const SizedBox(height: 30),
                   _buildStatSection(),
                   const SizedBox(height: 35),
                   _buildGraphTitle(),
-                  _buildChartSection(), // 2. Grafik diperbaiki
+                  _buildChartSection(),
                   const SizedBox(height: 25),
                   _buildActivityHeader(),
-                  // 3. Area Log Aktivitas
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
@@ -146,7 +189,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
       width: MediaQuery.of(context).size.width * 0.28,
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFC9D0D6).withOpacity(0.7), 
+        color: const Color(0xFFC9D0D6).withOpacity(0.7),
         borderRadius: BorderRadius.circular(12)
       ),
       child: Column(
@@ -188,13 +231,11 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
             child: Text("( Jumlah alat yang dipinjam )", style: GoogleFonts.poppins(fontSize: 7, color: Colors.black54)),
           ),
           const SizedBox(width: 5),
-          // Y-Axis Labels
           Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: ["200", "150", "100", "50", "0"].map((e) => Text(e, style: const TextStyle(fontSize: 9, color: Colors.black54))).toList(),
           ),
           const SizedBox(width: 10),
-          // Bars
           Expanded(
             child: Stack(
               alignment: Alignment.bottomCenter,
@@ -207,7 +248,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: chartData.map((data) {
-                    double barHeight = (data['value'] / 200) * 140; 
+                    double barHeight = (data['value'] / 200) * 140;
                     return Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -236,12 +277,27 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(children: [const Icon(Icons.history, size: 20), const SizedBox(width: 8), Text("Log aktivitas", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold))]),
+          Row(children: [
+            const Icon(Icons.history, size: 20), 
+            const SizedBox(width: 8), 
+            Text("Log aktivitas", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold))
+          ]),
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DaftarRiwayatAktivitas())),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(color: const Color(0xFFC9D0D6), borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC9D0D6),
+                borderRadius: BorderRadius.circular(10),
+                // MENAMBAHKAN BAYANGAN (SHADOW) AGAR MENONJOL
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              ),
               child: const Text("Detail >", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
           )
@@ -252,27 +308,30 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
 
   Widget _buildActivityItem(String nama, String tanggal, String role) {
     final Color badgeColor = role == 'Petugas' ? const Color(0xFF02182F) : const Color(0xFFB0B8C1);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.black.withOpacity(0.1)),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              children: [
-                _buildInfoRow("Nama", nama, role, badgeColor),
-                const SizedBox(height: 4),
-                _buildInfoRow("Tanggal", tanggal, null, null),
-              ],
+    return GestureDetector(
+      onTap: () => _showDetailPopup(nama, tanggal, role), // KLIK MUNCUL POPUP
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.black.withOpacity(0.1)),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  _buildInfoRow("Nama", nama, role, badgeColor),
+                  const SizedBox(height: 4),
+                  _buildInfoRow("Tanggal", tanggal, null, null),
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right, size: 20, color: Colors.black54),
-        ],
+            const Icon(Icons.chevron_right, size: 20, color: Colors.black54),
+          ],
+        ),
       ),
     );
   }

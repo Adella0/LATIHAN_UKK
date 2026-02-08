@@ -13,7 +13,7 @@ class ListPenggunaScreen extends StatefulWidget {
 
 class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
   final supabase = Supabase.instance.client;
-  String selectedRole = "Petugas"; // Default filter sesuai gambar
+  String selectedRole = "Petugas"; 
 
   @override
   Widget build(BuildContext context) {
@@ -22,24 +22,24 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 40),
-            // --- HEADER ---
+            const SizedBox(height: 35),
+            // --- HEADER TITLE ---
             Center(
               child: Text(
                 "Pengguna",
                 style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w400,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600, // Lebih Bold sesuai Figma
                   color: const Color(0xFF02182F),
                 ),
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 25),
             
             _buildSearchBar(),
-            const SizedBox(height: 25),
+            const SizedBox(height: 20),
             _buildRoleFilter(),
-            const SizedBox(height: 15),
+            const SizedBox(height: 20),
             
             Expanded(child: _buildUserList()),
           ],
@@ -52,17 +52,18 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25),
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: "Cari...",
-          hintStyle: GoogleFonts.poppins(color: Colors.black54),
-          prefixIcon: const Icon(Icons.search, color: Colors.black54),
-          filled: true,
-          fillColor: const Color(0xFFC9D0D6).withOpacity(0.5),
-          contentPadding: const EdgeInsets.symmetric(vertical: 0),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30), 
-            borderSide: BorderSide.none
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFE9EEF2), // Warna abu-abu soft figma
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: TextField(
+          decoration: InputDecoration(
+            hintText: "Cari...",
+            hintStyle: GoogleFonts.poppins(color: Colors.black45, fontSize: 14),
+            prefixIcon: const Icon(Icons.search, color: Colors.black45, size: 22),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
       ),
@@ -80,22 +81,22 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
           return GestureDetector(
             onTap: () => setState(() => selectedRole = role),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-              margin: const EdgeInsets.symmetric(horizontal: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+              margin: const EdgeInsets.symmetric(horizontal: 5),
               decoration: BoxDecoration(
                 color: isSelected ? const Color(0xFF02182F) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(25),
                 border: Border.all(
-                  color: isSelected ? const Color(0xFF02182F) : Colors.black45,
+                  color: isSelected ? const Color(0xFF02182F) : Colors.black26,
                   width: 1,
                 ),
               ),
               child: Text(
                 role,
                 style: GoogleFonts.poppins(
-                  color: isSelected ? Colors.white : Colors.black87,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  fontSize: 13,
+                  color: isSelected ? Colors.white : const Color(0xFF02182F),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  fontSize: 12,
                 ),
               ),
             ),
@@ -113,35 +114,23 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
           .order('nama'),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(child: Text("Error: ${snapshot.error}"));
+          return const Center(child: CircularProgressIndicator(color: Color(0xFF02182F)));
         }
 
         final allUsers = snapshot.data ?? [];
-        
         final filteredUsers = allUsers.where((u) => 
           (u['role'] ?? "").toString().toLowerCase() == selectedRole.toLowerCase()
         ).toList();
 
         if (filteredUsers.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.people_outline, size: 50, color: Colors.grey.shade300),
-                const SizedBox(height: 10),
-                Text("Tidak ada data $selectedRole", 
-                  style: GoogleFonts.poppins(color: Colors.grey)),
-              ],
-            ),
+            child: Text("Tidak ada data $selectedRole", 
+              style: GoogleFonts.poppins(color: Colors.grey)),
           );
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(25, 10, 25, 150),
+          padding: const EdgeInsets.fromLTRB(25, 5, 25, 120),
           itemCount: filteredUsers.length,
           itemBuilder: (context, index) => _buildUserCard(filteredUsers[index]),
         );
@@ -152,22 +141,22 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
   Widget _buildUserCard(Map<String, dynamic> user) {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
         children: [
-          const Icon(Icons.person, size: 35, color: Color(0xFF424242)),
+          // IKON USER SESUAI FIGMA
+          const Icon(Icons.person, size: 30, color: Color(0xFF424242)),
           const SizedBox(width: 15),
           
           Expanded(
@@ -176,9 +165,8 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
                 Flexible(
                   child: Text(
                     user['nama'] ?? "User",
-                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF02182F),
                     ),
@@ -190,29 +178,28 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
             ),
           ),
 
+          // ACTION BUTTONS
           Row(
             children: [
-              // TOMBOL HAPUS - Memanggil dialog dari file Hapus_pengguna.dart
               IconButton(
                 onPressed: () {
                   showDialog(
                     context: context,
-                    builder: (context) =>HapusPenggunaDialog(
-                    idUser: user['id_user'].toString(), // Tambahkan .toString() untuk jaga-jaga
-                    nama: user['nama'] ?? "User",
-                  )
+                    builder: (context) => HapusPenggunaDialog(
+                      idUser: user['id_user'].toString(),
+                      nama: user['nama'] ?? "User",
+                    ),
                   );
                 },
-                icon: const Icon(Icons.delete, color: Color(0xFFE52121), size: 22),
+                icon: const Icon(Icons.delete, color: Color(0xFFE52121), size: 20),
                 constraints: const BoxConstraints(),
                 padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
-              // TOMBOL EDIT
               IconButton(
                 onPressed: () {
-                   // Logika edit bisa ditambahkan di sini nanti
+                   // Logika edit
                 },
-                icon: const Icon(Icons.edit_outlined, color: Color(0xFF02182F), size: 22),
+                icon: const Icon(Icons.edit_outlined, color: Color(0xFF02182F), size: 20),
                 constraints: const BoxConstraints(),
                 padding: const EdgeInsets.only(left: 8),
               ),
@@ -225,16 +212,16 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
 
   Widget _buildSmallBadge(String role) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
         color: const Color(0xFF02182F),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        role,
+        role.toLowerCase(), // Disamakan kecil semua seperti di gambar
         style: const TextStyle(
           color: Colors.white, 
-          fontSize: 8, 
+          fontSize: 7, 
           fontWeight: FontWeight.bold
         ),
       ),
@@ -243,10 +230,20 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
 
   Widget _buildFabCustom() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 100, right: 10), 
-      child: SizedBox(
-        width: 65,
-        height: 65,
+      padding: const EdgeInsets.only(bottom: 20, right: 10), 
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF02182F).withOpacity(0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            )
+          ]
+        ),
         child: FloatingActionButton(
           onPressed: () {
             showDialog(
@@ -256,9 +253,9 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
             );
           },
           backgroundColor: const Color(0xFF02182F),
-          elevation: 6,
           shape: const CircleBorder(),
-          child: const Icon(Icons.add, color: Colors.white, size: 35),
+          elevation: 0, // Elevation 0 karena sudah pakai Shadow manual di atas
+          child: const Icon(Icons.add, color: Colors.white, size: 32),
         ),
       ),
     );

@@ -150,7 +150,7 @@ void initState() {
           : SingleChildScrollView(
           child: Column(
             children: [
-              const SizedBox(height: 20),
+              const SizedBox(height: 25),
               // --- HEADER ---
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),

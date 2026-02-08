@@ -78,7 +78,7 @@ class _TambahKategoriScreenState extends State<TambahKategoriScreen> {
     }
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -86,6 +86,8 @@ class _TambahKategoriScreenState extends State<TambahKategoriScreen> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 40),
       child: Container(
         width: double.infinity,
+        // --- KUNCI: Tentukan tinggi tetap di sini agar tidak goyang ---
+        height: 500, 
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -99,7 +101,8 @@ class _TambahKategoriScreenState extends State<TambahKategoriScreen> {
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          // Gunakan MainAxisSize.max karena kita sudah tentukan tinggi container
+          mainAxisSize: MainAxisSize.max, 
           children: [
             Container(
               width: 40,
@@ -120,12 +123,17 @@ class _TambahKategoriScreenState extends State<TambahKategoriScreen> {
             ),
             const SizedBox(height: 15),
 
-            // Daftar Item Kategori dari Database
-            Flexible(
+            // --- AREA LIST: Dibuat Expanded agar mengambil sisa ruang yang ada ---
+            Expanded(
               child: _categories.isEmpty
-                  ? Text("Belum ada kategori", style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey))
+                  ? Center(
+                      child: Text("Belum ada kategori", 
+                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+                    )
                   : ListView.builder(
-                      shrinkWrap: true,
+                      // shrinkWrap false karena sudah dibungkus Expanded
+                      shrinkWrap: false,
+                      physics: const BouncingScrollPhysics(),
                       itemCount: _categories.length,
                       itemBuilder: (context, index) {
                         final item = _categories[index];
@@ -137,22 +145,24 @@ class _TambahKategoriScreenState extends State<TambahKategoriScreen> {
                     ),
             ),
 
-            const SizedBox(height: 35),
+            const SizedBox(height: 15),
+            const Divider(), // Garis pembatas tipis agar lebih rapi
+            const SizedBox(height: 15),
 
-            // Input Field
+            // Input Field (Posisinya sekarang akan selalu tetap di bawah)
             TextField(
               controller: _kategoriController,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(fontSize: 13),
               decoration: InputDecoration(
-                hintText: "Masukkan nama kategori",
+                hintText: "Nama kategori baru...",
                 hintStyle: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-                contentPadding: const EdgeInsets.symmetric(vertical: 5),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: Colors.grey.shade50,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade400),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -160,24 +170,17 @@ class _TambahKategoriScreenState extends State<TambahKategoriScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 15),
 
             // Tombol Tambah
             GestureDetector(
               onTap: _isLoading ? null : _tambahKategori,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF011931),
                   borderRadius: BorderRadius.circular(25),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF011931).withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,

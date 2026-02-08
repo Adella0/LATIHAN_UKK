@@ -1,63 +1,38 @@
-
+import 'package:apk_peminjaman/features/admin/manage_user/List_pengguna.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../manage_alat/list_alat_screen.dart';// Ganti dengan nama file list alatmu
-import '../manage_alat/tambah_alat.dart';
+import '../dashboard/dashboard_admin_screen.dart';
+import '../manage_alat/list_alat_screen.dart';
 
-class MainNav extends StatefulWidget {
-  const MainNav({super.key});
+class MainNavAdmin extends StatefulWidget {
+  const MainNavAdmin({super.key});
 
   @override
-  State<MainNav> createState() => _MainNavState();
+  State<MainNavAdmin> createState() => _MainNavAdminState();
 }
 
-class _MainNavState extends State<MainNav> {
+class _MainNavAdminState extends State<MainNavAdmin> {
   int _selectedIndex = 0;
 
-  // List halaman utama
+  // 2. Masukkan DashboardAdminScreen ke index 0
   final List<Widget> _pages = [
-    const ListAlatScreen(), // Halaman Index 0
-    const Center(child: Text("Halaman Peminjaman")), // Index 1
-    const Center(child: Text("Halaman Profile")),    // Index 2
+    const DashboardAdminScreen(),                            // Dashboard Asli Muncul Lagi
+    const ListAlatScreen(),                                  // Menu Alat
+    const ListPenggunaScreen(),
+    const Center(child: Text("Halaman Data Peminjaman")),    
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_selectedIndex],
-      
-      // TOMBOL TAMBAH BULAT (Floating Action Button)
-      // Ini yang akan masuk ke tambah_alat.dart
-      floatingActionButton: _selectedIndex == 0 
-          ? FloatingActionButton(
-              onPressed: () async {
-                // KUNCINYA: Pakai 'await' untuk menunggu hasil dari halaman tambah
-                final bool? BerhasilTambah = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const TambahAlatScreen()),
-                );
-
-                // Jika kembali membawa nilai 'true', maka refresh halaman
-                if (BerhasilTambah == true) {
-                  setState(() {
-                    // Refresh state untuk memicu FutureBuilder di ListAlat
-                  });
-                }
-              },
-              backgroundColor: const Color(0xFF02182F),
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add, color: Colors.white, size: 30),
-            )
-          : null,
-
-      // DESIGN BOTTOM NAV
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
+              blurRadius: 15,
+              offset: const Offset(0, -2),
             ),
           ],
         ),
@@ -71,21 +46,28 @@ class _MainNavState extends State<MainNav> {
           backgroundColor: Colors.white,
           selectedItemColor: const Color(0xFF02182F),
           unselectedItemColor: Colors.grey,
-          selectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12),
-          unselectedLabelStyle: GoogleFonts.poppins(fontSize: 12),
           type: BottomNavigationBarType.fixed,
+          selectedLabelStyle: GoogleFonts.poppins(
+            fontSize: 11, 
+            fontWeight: FontWeight.w600
+          ),
+          unselectedLabelStyle: GoogleFonts.poppins(fontSize: 11),
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view_rounded),
-              label: 'Beranda',
+              icon: Icon(Icons.dashboard_rounded), 
+              label: 'Dashboard'
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long_rounded),
-              label: 'Pinjam',
+              icon: Icon(Icons.inventory_2_rounded), 
+              label: 'Alat'
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              label: 'Profil',
+              icon: Icon(Icons.people_alt_rounded), 
+              label: 'Pengguna'
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.assignment_rounded), 
+              label: 'Peminjaman'
             ),
           ],
         ),
