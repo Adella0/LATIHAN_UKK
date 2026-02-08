@@ -1,8 +1,6 @@
 name: apk_peminjaman
 description: "A new Flutter project."
-# The following line prevents the package from being accidentally published to
-# pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -30,26 +28,14 @@ dependencies:
   # Library yang kamu butuhkan
   supabase_flutter: ^2.0.0
   google_fonts: ^6.2.1
-<<<<<<< HEAD
-  image_picker: ^1.0.4
-=======
-  image_picker: ^1.1.2 # Sejajarkan spasi dengan yang lain
+  image_picker: ^1.1.2
   cupertino_icons: ^1.0.6
-  flutter_lints: ^5.0.0
->>>>>>> 44fc0217cc80d4eef5d8cbbef8573965e103c3ca
 
-# Dev dependencies juga menempel ke kiri
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  
-
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
