@@ -1,3 +1,4 @@
+import 'package:apk_peminjaman/features/admin/manage_peminjam/data_peminjaman.dart';
 import 'package:apk_peminjaman/features/admin/manage_user/List_pengguna.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,7 +20,7 @@ class _MainNavAdminState extends State<MainNavAdmin> {
     const DashboardAdminScreen(),                            // Dashboard Asli Muncul Lagi
     const ListAlatScreen(),                                  // Menu Alat
     const ListPenggunaScreen(),
-    const Center(child: Text("Halaman Data Peminjaman")),    
+    const DataPeminjamScreen()   
   ];
 
   @override

@@ -34,33 +34,37 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     _loadDashboardData();
   }
 
-  Future<void> _loadDashboardData() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final user = supabase.auth.currentUser;
-      if (user != null) {
-        final userData = await supabase.from('users').select('nama, role').eq('id_user', user.id).single();
-        final totalRes = await supabase.from('alat').select('id_alat');
-        final pinjamRes = await supabase.from('peminjaman').select('id_pinjam').eq('status', 'Dipinjam');
-        final rusakRes = await supabase.from('alat').select('id_alat').eq('kondisi', 'Rusak');
+ Future<void> _loadDashboardData() async {
+  try {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
 
+    if (user != null) {
+      // 1. Ambil data mentah tanpa filter kolom dulu biar tidak error nama kolom
+      final res = await supabase
+          .from('users')
+          .select() 
+          .eq('id_user', user.id)
+          .maybeSingle();
+
+      if (res != null && mounted) {
         setState(() {
-          userName = userData['nama'] ?? "Admin1";
-          userRole = userData['role'] ?? "Admin";
-          totalAlat = totalRes.length.toString();
-          pinjamanAktif = pinjamRes.length.toString();
-          barangRusak = rusakRes.length.toString();
+          // Ambil data 'nama' atau 'nama_user'. Kita cek mana yang ada isinya.
+          userName = res['nama'] ?? res['nama_user'] ?? "Admin";
+          
+          // Ambil role dan buat huruf depannya kapital (admin -> Admin)
+          String roleRaw = res['role'] ?? "Admin";
+          userRole = roleRaw[0].toUpperCase() + roleRaw.substring(1);
+          
           isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        userName = "Admin1";
-        userRole = "Admin";
-        isLoading = false;
-      });
     }
+  } catch (e) {
+    debugPrint("Error Dashboard: $e");
+    if (mounted) setState(() => isLoading = false);
   }
+}
 
   // --- FUNGSI POP-UP DETAIL LOG ---
   void _showDetailPopup(String nama, String tanggal, String role) {
