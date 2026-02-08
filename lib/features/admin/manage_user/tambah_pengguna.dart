@@ -10,7 +10,7 @@ class TambahPenggunaDialog extends StatefulWidget {
 }
 
 class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
-  final _formKey = GlobalKey<FormState>(); // Kunci untuk validasi
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _namaController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -19,49 +19,43 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
 
   final supabase = Supabase.instance.client;
 
-  Future<void> _tambahPengguna() async {
+ Future<void> _tambahPengguna() async {
   if (!_formKey.currentState!.validate()) return;
-
   setState(() => _isLoading = true);
 
   try {
-    // 1. Membersihkan input dari spasi liar
-    final emailClean = _emailController.text.trim();
-    final passwordClean = _passwordController.text.trim();
-    final namaClean = _namaController.text.trim();
-
-    // 2. Mendaftarkan ke Supabase Auth
-    final AuthResponse res = await supabase.auth.signUp(
-      email: emailClean,
-      password: passwordClean,
+    // 1. DAFTARKAN AUTH
+    final res = await supabase.auth.signUp(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
     );
 
-    final String? newUserId = res.user?.id;
-
-    if (newUserId != null) {
-      // 3. Masukkan ke Tabel Publik 'users'
-      // Gunakan UPSERT agar jika ID sudah ada, dia hanya mengupdate (mencegah Duplicate Key Error)
-      await supabase.from('users').upsert({
-        'id_user': newUserId,
-        'nama': namaClean,
-        'email': emailClean,
-        'role': _selectedRole,
-      });
+    if (res.user != null) {
+      // 2. MASUKKAN MANUAL KE TABEL USERS (Pastikan nama kolom sesuai tabelmu)
+      // Di dalam fungsi _tambahPengguna
+await supabase.from('users').insert({
+  'id_user': res.user!.id,
+  'email': _emailController.text.trim(),
+  'nama': _namaController.text.trim(), // GANTI 'nama_user' JADI 'nama'
+  'role': _selectedRole?.toLowerCase(), 
+});
 
       if (mounted) {
-        Navigator.pop(context); 
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Pengguna Berhasil Ditambahkan dan Sinkron!")),
+          const SnackBar(content: Text("BERHASIL! Role sudah sesuai."), backgroundColor: Colors.green),
         );
       }
     }
   } on AuthException catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Gagal Auth: ${e.message}")),
+      SnackBar(content: Text("Gagal Auth: ${e.message}"), backgroundColor: Colors.red),
     );
   } catch (e) {
+    // Kalau error di sini, berarti nama kolom di tabel 'users' ada yang beda
+    print("DETAIL ERROR DATABASE: $e");
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Gagal Database: $e")),
+      SnackBar(content: Text("Gagal Simpan ke Tabel: $e"), backgroundColor: Colors.red),
     );
   } finally {
     if (mounted) setState(() => _isLoading = false);
@@ -72,39 +66,69 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-      child: Padding(
-        padding: const EdgeInsets.all(25),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(35)),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(25, 10, 25, 25),
         child: Form(
-          key: _formKey, // Pasang form key di sini
+          key: _formKey,
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Tambah Pengguna", 
-                  style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF02182F))),
+                // GARIS HANDLE ATAS (Sesuai Desain Figma)
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  "Tambah Pengguna",
+                  style: GoogleFonts.poppins(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF02182F),
+                  ),
+                ),
                 const SizedBox(height: 25),
                 
-                _buildInput("Nama", _namaController, false),
-                _buildInput("Email", _emailController, false),
-                _buildInput("Password", _passwordController, true),
-
-                const SizedBox(height: 10),
+                _buildInput("Nama", _namaController, false, "Masukkan Nama"),
+                _buildInput("Email", _emailController, false, "Masukkan Email"),
+                _buildInput("Password", _passwordController, true, "Masukkan Password"),
                 _buildDropdown(),
 
                 const SizedBox(height: 35),
-                // Tombol Simpan
+                
+                // TOMBOL TAMBAH
                 ElevatedButton(
                   onPressed: _isLoading ? null : _tambahPengguna,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF02182F),
-                    minimumSize: const Size(150, 45),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    minimumSize: const Size(160, 48),
+                    elevation: 5,
+                    shadowColor: Colors.black.withOpacity(0.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                   ),
-                  child: _isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : Text("Tambah", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Text(
+                          "Tambah",
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
                 ),
+                const SizedBox(height: 10),
               ],
             ),
           ),
@@ -113,22 +137,46 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
     );
   }
 
-  Widget _buildInput(String label, TextEditingController controller, bool isPass) {
+  Widget _buildInput(String label, TextEditingController controller, bool isPass, String hint) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 5),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           obscureText: isPass,
+          style: GoogleFonts.poppins(fontSize: 14),
           decoration: InputDecoration(
-            hintText: "Masukkan $label",
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            hintText: hint,
+            hintStyle: GoogleFonts.poppins(color: Colors.black26, fontSize: 13),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Colors.black38, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Color(0xFF02182F), width: 1.5),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Colors.red, width: 1),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Colors.red, width: 1.5),
+            ),
           ),
-          // VALIDATOR: Ini yang membuat error muncul di bawah field
           validator: (value) {
-            if (value == null || value.isEmpty) return "$label tidak boleh kosong";
+            if (value == null || value.isEmpty) return "$label wajib diisi";
             if (isPass && value.length < 6) return "Minimal 6 karakter";
             return null;
           },
@@ -142,13 +190,34 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Sebagai", style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 5),
+        Text(
+          "Sebagai",
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-          hint: const Text("Pilih role"),
+          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Colors.black38, width: 1),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(color: Color(0xFF02182F), width: 1.5),
+            ),
+          ),
+          hint: Text("Pilih role", style: GoogleFonts.poppins(color: Colors.black26, fontSize: 13)),
           items: ["Admin", "Petugas", "Peminjam"].map((role) {
-            return DropdownMenuItem(value: role, child: Text(role));
+            return DropdownMenuItem(
+              value: role,
+              child: Text(role, style: GoogleFonts.poppins(fontSize: 14)),
+            );
           }).toList(),
           onChanged: (val) => setState(() => _selectedRole = val),
           validator: (val) => val == null ? "Pilih role" : null,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../manage_user/tambah_pengguna.dart';
 import '../manage_user/Hapus_pengguna.dart';
+import '../manage_user/update_pengguna.dart';
 
 class ListPenggunaScreen extends StatefulWidget {
   const ListPenggunaScreen({super.key});
@@ -106,18 +107,25 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
     );
   }
 
-  Widget _buildUserList() {
+ Widget _buildUserList() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: supabase
           .from('users')
-          .stream(primaryKey: ['id_user'])
+          .stream(primaryKey: ['id_user']) // Pastikan di DB namanya 'id_user' (bukan 'id')
           .order('nama'),
       builder: (context, snapshot) {
+        // Cek jika ada error dari Stream
+        if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}"));
+        }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Color(0xFF02182F)));
         }
 
         final allUsers = snapshot.data ?? [];
+        
+        // Melakukan filter berdasarkan role yang dipilih di UI
         final filteredUsers = allUsers.where((u) => 
           (u['role'] ?? "").toString().toLowerCase() == selectedRole.toLowerCase()
         ).toList();
@@ -181,28 +189,40 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
           // ACTION BUTTONS
           Row(
             children: [
+             IconButton(
+              onPressed: () async {
+                // Tambahkan 'await' sebelum showDialog
+                await showDialog(
+                  context: context,
+                  builder: (context) => HapusPenggunaDialog(
+                    idUser: user['id_user'].toString(),
+                    nama: user['nama'] ?? "User",
+                  ),
+                );
+                
+                // KODE INI PENTING:
+                // Setelah dialog Hapus ditutup (Navigator.pop), 
+                // baris di bawah ini akan dijalankan dan memicu build ulang.
+                setState(() {
+                  // Ini akan memaksa StreamBuilder untuk mengecek ulang data terbaru
+                });
+              },
+              icon: const Icon(Icons.delete, color: Color(0xFFE52121), size: 20),
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
               IconButton(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => HapusPenggunaDialog(
-                      idUser: user['id_user'].toString(),
-                      nama: user['nama'] ?? "User",
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.delete, color: Color(0xFFE52121), size: 20),
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              IconButton(
-                onPressed: () {
-                   // Logika edit
-                },
-                icon: const Icon(Icons.edit_outlined, color: Color(0xFF02182F), size: 20),
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.only(left: 8),
-              ),
+              onPressed: () async {
+                // Memanggil dialog update sambil mengirim data user saat ini
+                await showDialog(
+                  context: context,
+                  builder: (context) => UpdatePenggunaDialog(user: user),
+                );
+                // Refresh list setelah dialog ditutup
+                setState(() {});
+              },
+              icon: const Icon(Icons.edit_outlined, color: Color(0xFF02182F), size: 20),
+            ),
             ],
           ),
         ],

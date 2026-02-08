@@ -3,8 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HapusPenggunaDialog extends StatelessWidget {
-  // idUser sekarang String agar cocok dengan UUID di Supabase
-  final String idUser; 
+  final String idUser;
   final String nama;
 
   const HapusPenggunaDialog({
@@ -17,12 +16,15 @@ class HapusPenggunaDialog extends StatelessWidget {
     final supabase = Supabase.instance.client;
 
     try {
-      // Melakukan delete berdasarkan id_user
-      // Pastikan ID dikirim sebagai string yang bersih
-      await supabase.from('users').delete().eq('id_user', idUser.toString());
+      // 1. Jalankan perintah delete
+      // Pastikan nama kolom di database adalah 'id_user'
+      await supabase
+          .from('users')
+          .delete()
+          .eq('id_user', idUser);
 
       if (context.mounted) {
-        Navigator.pop(context); // Tutup dialog setelah berhasil
+        Navigator.pop(context); // Tutup dialog
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Pengguna '$nama' berhasil dihapus"),
@@ -32,12 +34,12 @@ class HapusPenggunaDialog extends StatelessWidget {
         );
       }
     } catch (e) {
+      debugPrint("Error Hapus: $e"); // Cek error di console jika gagal
       if (context.mounted) {
-        // Jika gagal (biasanya karena Foreign Key/Data masih dipakai di tabel lain)
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Gagal menghapus: Data sedang digunakan di tabel lain"),
+          const SnackBar(
+            content: Text("Gagal menghapus: Pastikan koneksi aman atau cek RLS Database"),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
@@ -48,49 +50,86 @@ class HapusPenggunaDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(
-        "Konfirmasi Hapus",
-        textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-      ),
-      content: Text(
-        "Apakah anda yakin ingin menghapus pengguna '$nama'?",
-        textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(fontSize: 14),
-      ),
-      actionsAlignment: MainAxisAlignment.spaceEvenly,
-      actions: [
-        // TOMBOL TIDAK
-        SizedBox(
-          width: 100,
-          child: ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey.shade300,
-              foregroundColor: Colors.black,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Hapus?",
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
             ),
-            child: Text("Tidak", style: GoogleFonts.poppins()),
-          ),
-        ),
-        // TOMBOL IYA
-        SizedBox(
-          width: 100,
-          child: ElevatedButton(
-            onPressed: () => _prosesHapus(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE52121),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            const SizedBox(height: 15),
+            Text(
+              "Apakah kamu yakin ingin menghapus pengguna tersebut?",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
             ),
-            child: Text("Iya", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-          ),
+            const SizedBox(height: 30),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildActionButton(
+                  context: context,
+                  label: "Tidak",
+                  color: const Color(0xFFD9D9D9),
+                  textColor: Colors.black,
+                  onPressed: () => Navigator.pop(context),
+                ),
+                _buildActionButton(
+                  context: context,
+                  label: "Iya",
+                  color: const Color(0xFF02182F),
+                  textColor: Colors.white,
+                  onPressed: () => _prosesHapus(context),
+                ),
+              ],
+            ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required String label,
+    required Color color,
+    required Color textColor,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: textColor,
+          minimumSize: const Size(100, 40),
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+      ),
     );
   }
 }
