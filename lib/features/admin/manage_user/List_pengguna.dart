@@ -23,7 +23,7 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 35),
+            const SizedBox(height: 20),
             // --- HEADER TITLE ---
             Center(
               child: Text(
@@ -35,7 +35,7 @@ class _ListPenggunaScreenState extends State<ListPenggunaScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 25),
+            const SizedBox(height: 20),
             
             _buildSearchBar(),
             const SizedBox(height: 20),

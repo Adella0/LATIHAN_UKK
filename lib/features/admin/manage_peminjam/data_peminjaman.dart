@@ -13,7 +13,7 @@ class DataPeminjamScreen extends StatefulWidget {
 class _DataPeminjamScreenState extends State<DataPeminjamScreen> {
   final supabase = Supabase.instance.client;
   List<Map<String, dynamic>> riwayatPeminjaman = [];
-  List<Map<String, dynamic>> filteredData = []; // Untuk fitur pencarian
+  List<Map<String, dynamic>> filteredData = [];
   bool isLoading = true;
   String selectedCategory = "Riwayat peminjaman";
   TextEditingController searchController = TextEditingController();
@@ -32,21 +32,31 @@ class _DataPeminjamScreenState extends State<DataPeminjamScreen> {
 
       final response = await supabase
           .from('peminjaman')
-          .select('*, users!peminjam_id(nama, role)')
+          .select('''
+            *,
+            users:peminjam_id(nama, role),
+            detail_peminjaman!detail_peminjaman_id_pinjam_fkey(
+              jumlah,
+              alat!detail_peminjaman_id_alat_fkey(
+                nama_alat, 
+                foto_url,
+                kategori(nama_kategori)
+              )
+            )
+          ''')
           .eq('status_transaksi', statusFilter);
 
       setState(() {
         riwayatPeminjaman = List<Map<String, dynamic>>.from(response);
-        filteredData = riwayatPeminjaman; // Sinkronkan data filter
+        filteredData = riwayatPeminjaman;
         isLoading = false;
       });
     } catch (e) {
-      debugPrint("Error Detail: $e");
+      debugPrint("ERROR_DATABASE_CEK: $e");
       setState(() => isLoading = false);
     }
   }
 
-  // --- LOGIKA PENCARIAN ---
   void _filterSearch(String query) {
     setState(() {
       filteredData = riwayatPeminjaman
@@ -56,17 +66,15 @@ class _DataPeminjamScreenState extends State<DataPeminjamScreen> {
     });
   }
 
-  // --- LOGIKA HAPUS DATA ---
   Future<void> _deleteData(dynamic idPinjam) async {
     try {
       await supabase.from('peminjaman').delete().eq('id_pinjam', idPinjam);
-      _fetchDataPeminjam(); // Refresh data
+      _fetchDataPeminjam();
     } catch (e) {
       debugPrint("Gagal hapus: $e");
     }
   }
 
-  // --- DIALOG KONFIRMASI HAPUS ---
   void _showDeleteDialog(dynamic idPinjam) {
     showDialog(
       context: context,
@@ -128,14 +136,13 @@ class _DataPeminjamScreenState extends State<DataPeminjamScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
             Text(
               "Data peminjam",
-              style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w600, color: const Color(0xFF02182F)),
+              style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w600, color: const Color(0xFF02182F)),
             ),
             const SizedBox(height: 25),
             
-            // --- SEARCH BAR ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 25),
               child: Container(
@@ -158,7 +165,6 @@ class _DataPeminjamScreenState extends State<DataPeminjamScreen> {
             ),
             const SizedBox(height: 30),
 
-            // --- TAB NAVIGATION ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Row(
@@ -171,7 +177,6 @@ class _DataPeminjamScreenState extends State<DataPeminjamScreen> {
             ),
             const SizedBox(height: 10),
 
-            // --- LIST DATA ---
             Expanded(
               child: isLoading
                   ? const Center(child: CircularProgressIndicator(color: Color(0xFF02182F)))
@@ -217,91 +222,105 @@ class _DataPeminjamScreenState extends State<DataPeminjamScreen> {
     final String nama = data['users']?['nama'] ?? "User";
     final String role = data['users']?['role'] ?? "Peminjam";
     final String status = data['status_transaksi'] ?? "disetujui";
-    
+
+    // --- FUNGSI FORMAT TANGGAL ---
+    String formatTanggal(String? rawDate) {
+      if (rawDate == null || rawDate == "-") return "-";
+      try {
+        DateTime dt = DateTime.parse(rawDate);
+        String day = dt.day.toString().padLeft(2, '0');
+        String month = dt.month.toString().padLeft(2, '0');
+        String year = dt.year.toString();
+        String hour = dt.hour.toString().padLeft(2, '0');
+        String minute = dt.minute.toString().padLeft(2, '0');
+        return "$day/$month/$year | $hour.$minute";
+      } catch (e) {
+        return rawDate;
+      }
+    }
+
+    String tglPengambilan = formatTanggal(data['pengambilan']);
+    String tglTenggat = formatTanggal(data['tenggat']);
+
+    List details = data['detail_peminjaman'] ?? [];
+    int totalUnit = 0;
+    for (var item in details) {
+      totalUnit += (item['jumlah'] as int? ?? 0);
+    }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 25, left: 10, right: 10), 
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 15),
+      margin: const EdgeInsets.only(bottom: 16), 
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 18, spreadRadius: 2, offset: const Offset(0, 8)),
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(width: 60, height: 3, decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(10))),
-          const SizedBox(height: 15),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const CircleAvatar(radius: 26, backgroundColor: Color(0xFF2D3748), child: Icon(Icons.person, color: Colors.white, size: 30)),
+              const CircleAvatar(
+                radius: 20, 
+                backgroundColor: Color(0xFF2D3748), 
+                child: Icon(Icons.person, color: Colors.white, size: 20)
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 4),
-                    Text(nama, style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16, color: const Color(0xFF02182F))),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                      decoration: BoxDecoration(color: const Color(0xFFCBD5E0), borderRadius: BorderRadius.circular(8)),
-                      child: Text(role, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF2D3748))),
-                    ),
+                    Text(nama, style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 14, color: const Color(0xFF02182F))),
+                    Text(role, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[600])),
                   ],
                 ),
               ),
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => _showDeleteDialog(data['id_pinjam']),
-                    child: const Icon(Icons.delete, color: Color(0xFFB91C1C), size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    children: [
-                      Text("Status", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF02182F))),
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: status.toLowerCase() == "ditolak" ? const Color(0xFFB91C1C) : const Color(0xFF4A4E54),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(status.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w500)),
-                      )
-                    ],
-                  ),
-                ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: status.toLowerCase() == "ditolak" ? const Color(0xFFB91C1C) : const Color(0xFF4A4E54),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(status.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _showDeleteDialog(data['id_pinjam']),
+                child: const Icon(Icons.delete_outline, color: Color(0xFFB91C1C), size: 18),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildInfoItem("Pengambilan", "21/01/2026 | 08.30"),
-              _buildInfoItem("Tenggat", "23/01/2026 | 09.00"),
-              _buildInfoItem("Alat", "2"),
+              // Menggunakan Expanded agar teks tanggal tidak overflow (tabrakan)
+              Expanded(flex: 4, child: _buildInfoItem("Pengambilan", tglPengambilan)),
+              Expanded(flex: 4, child: _buildInfoItem("Tenggat", tglTenggat)),
+              Expanded(flex: 2, child: _buildInfoItem("Alat", "$totalUnit Unit")), 
             ],
           ),
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
             child: InkWell(
-             onTap: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => DetailPeminjamanScreen(data: data),
-    ),
-  );
-}, // Arahkan ke halaman detail nanti
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => DetailPeminjamanScreen(data: data)),
+                );
+              },
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text("Lihat detail", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w400, color: Colors.grey[600], decoration: TextDecoration.underline)),
-                  Icon(Icons.chevron_right, size: 12, color: Colors.grey[600]),
+                  Text("Lihat detail", style: GoogleFonts.poppins(fontSize: 10, color: Colors.blue[700], decoration: TextDecoration.underline)),
+                  Icon(Icons.chevron_right, size: 14, color: Colors.blue[700]),
                 ],
               ),
             ),
@@ -313,10 +332,13 @@ class _DataPeminjamScreenState extends State<DataPeminjamScreen> {
 
   Widget _buildInfoItem(String label, String value) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 14, color: const Color(0xFF02182F))),
+        Text(label, style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey[500], fontWeight: FontWeight.w500)),
         const SizedBox(height: 2),
-        Text(value, style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF4A5568), fontWeight: FontWeight.w400)),
+        Text(value, 
+          style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF02182F))
+        ),
       ],
     );
   }

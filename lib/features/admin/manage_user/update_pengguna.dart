@@ -17,10 +17,9 @@ class _UpdatePenggunaDialogState extends State<UpdatePenggunaDialog> {
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   
-  bool _obscurePassword = true; 
-  String? _selectedRole;
   bool _isLoading = false;
-  late String _initialStars; // Untuk melacak bintang awal
+  late String _initialStars; 
+  String? _selectedRole;
 
   @override
   void initState() {
@@ -28,12 +27,9 @@ class _UpdatePenggunaDialogState extends State<UpdatePenggunaDialog> {
     _namaController = TextEditingController(text: widget.user['nama']);
     _emailController = TextEditingController(text: widget.user['email']);
     
-    // LOGIKA SENSOR BINTANG DINAMIS
-    // Kita ambil data dari kolom 'password' di tabel users (jika ada)
-    // Jika kolomnya tidak ada/null, kita beri default 6 bintang
+    // Ambil password dari database (jika ada), kalau tidak ada tampilkan 6 bintang
     String rawPass = widget.user['password']?.toString() ?? "******";
     _initialStars = "*" * rawPass.length; 
-    
     _passwordController = TextEditingController(text: _initialStars);
     
     _selectedRole = _capitalize(widget.user['role']);
@@ -44,52 +40,50 @@ class _UpdatePenggunaDialogState extends State<UpdatePenggunaDialog> {
     return text[0].toUpperCase() + text.substring(1).toLowerCase();
   }
 
-Future<void> _updatePengguna() async {
+  Future<void> _updatePengguna() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
     final supabase = Supabase.instance.client;
 
     try {
-      // 1. UPDATE DATA PROFIL (Ke Tabel 'users')
-      // Kita HANYA update nama, email, dan role. 
-      // JANGAN masukkan kolom 'password' di sini karena akan error 'column not found'.
-      await supabase.from('users').update({
+      // 1. SIAPKAN DATA UNTUK UPDATE
+      Map<String, dynamic> updateData = {
         'nama': _namaController.text.trim(),
         'email': _emailController.text.trim(),
         'role': _selectedRole?.toLowerCase(),
-      }).eq('id_user', widget.user['id_user']);
+      };
 
-      // 2. LOGIKA UPDATE PASSWORD (Ke sistem Supabase Auth)
-      // Kita cek: Jika isinya bukan lagi bintang-bintang awal dan tidak kosong,
-      // berarti admin ingin mengganti password akun tersebut.
+      // 2. CEK APAKAH PASSWORD DIGANTI
+      // Jika isi controller tidak sama dengan bintang-bintang awal,
+      // artinya Admin mengetikkan password baru.
       if (_passwordController.text != _initialStars && _passwordController.text.isNotEmpty) {
-        
-        // PENTING: Perintah ini akan mengupdate password user yang SEDANG LOGIN (Admin).
-        // Jika ingin mengganti password user lain, sebaiknya gunakan fitur 'Reset Password' 
-        // di Dashboard Supabase agar lebih aman.
-        await supabase.auth.updateUser(
-          UserAttributes(password: _passwordController.text.trim()),
-        );
+        updateData['password'] = _passwordController.text.trim();
       }
 
+      // 3. EKSEKUSI UPDATE KE TABEL 'users'
+      // Kita tidak lagi memanggil supabase.auth.updateUser!
+      // Jadi password admin yang login TIDAK AKAN TERGANTI.
+      await supabase
+          .from('users')
+          .update(updateData)
+          .eq('id_user', widget.user['id_user']); // ID user yang sedang diedit
+
       if (mounted) {
-        Navigator.pop(context); // Tutup dialog
+        Navigator.pop(context, true); // Kirim 'true' agar halaman daftar user tahu ada perubahan
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Data Berhasil Diperbarui!"),
-            backgroundColor: Colors.green,
+            content: Text("Data Pengguna Berhasil Diperbarui!"),
+            backgroundColor: Color(0xFF02182F),
           ),
         );
       }
     } catch (e) {
-      // Jika error, tampilkan pesan agar kita tahu masalahnya
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Gagal memperbarui: $e"), 
-          backgroundColor: Colors.red
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal memperbarui: $e"), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -163,41 +157,33 @@ Future<void> _updatePengguna() async {
     );
   }
 
- Widget _buildPasswordField() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text("Password", style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
-      const SizedBox(height: 6),
-      TextFormField(
-        controller: _passwordController,
-        // Kunci di sini: obscureText selalu true agar sensor bintang tidak bisa dibuka
-        obscureText: true, 
-        style: GoogleFonts.poppins(fontSize: 13),
-        onTap: () {
-          if (_passwordController.text == _initialStars) {
-            _passwordController.clear();
-          }
-        },
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          // Ganti IconButton menjadi Icon biasa agar tidak bisa diklik
-          suffixIcon: const Padding(
-            padding: EdgeInsets.only(right: 10),
-            child: Icon(
-              Icons.visibility_off, // Ikon mata tertutup
-              size: 20, 
-              color: Colors.grey,
-            ),
+  Widget _buildPasswordField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Password", style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: _passwordController,
+          obscureText: true, 
+          style: GoogleFonts.poppins(fontSize: 13),
+          onTap: () {
+            // Jika user klik kolom password, langsung bersihkan bintang agar bisa ngetik baru
+            if (_passwordController.text == _initialStars) {
+              _passwordController.clear();
+            }
+          },
+          decoration: InputDecoration(
+            hintText: "Isi untuk ganti password",
+            contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            suffixIcon: const Icon(Icons.lock_outline, size: 20, color: Colors.grey),
           ),
         ),
-        validator: (v) => v == null || v.isEmpty ? "Password wajib diisi" : null,
-      ),
-      const SizedBox(height: 12),
-    ],
-  );
-}
+        const SizedBox(height: 12),
+      ],
+    );
+  }
 
   Widget _buildRoleDropdown() {
     return Column(
