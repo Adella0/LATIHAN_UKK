@@ -42,10 +42,6 @@ class _MainNavPeminjamState extends State<MainNavPeminjam> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(30),
-            topRight: Radius.circular(30),
-          ),
           child: BottomNavigationBar(
             currentIndex: _selectedIndex,
             onTap: (index) {
@@ -66,21 +62,21 @@ class _MainNavPeminjamState extends State<MainNavPeminjam> {
               BottomNavigationBarItem(
                 icon: Padding(
                   padding: EdgeInsets.only(bottom: 4),
-                  child: Icon(Icons.home_rounded, size: 28), // Ikon Dashboard
+                  child: Icon(Icons.home_rounded, size: 25), // Ikon Dashboard
                 ),
                 label: 'Dashboard',
               ),
               BottomNavigationBarItem(
                 icon: Padding(
                   padding: EdgeInsets.only(bottom: 4),
-                  child: Icon(Icons.shopping_cart_checkout_rounded, size: 28), // Ikon Pinjaman Saya (mirip troli di gambar)
+                  child: Icon(Icons.shopping_cart_checkout_rounded, size: 25), // Ikon Pinjaman Saya (mirip troli di gambar)
                 ),
                 label: 'Pinjaman saya',
               ),
               BottomNavigationBarItem(
                 icon: Padding(
                   padding: EdgeInsets.only(bottom: 4),
-                  child: Icon(Icons.history_rounded, size: 28), // Ikon Riwayat
+                  child: Icon(Icons.history_rounded, size: 25), // Ikon Riwayat
                 ),
                 label: 'Riwayat',
               ),

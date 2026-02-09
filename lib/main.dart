@@ -18,10 +18,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ambil user yang sedang login
+    final session = Supabase.instance.client.auth.currentSession;
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'SarprasGo',
-      initialRoute: AppRoutes.initial, // Ini akan membuka LoginScreen (sesuai setting di AppRoutes)
+      // Logika: Jika tidak ada session, ke login. Jika ada, ke main_peminjam
+      initialRoute: session == null ? AppRoutes.initial : '/main_peminjam', 
       routes: AppRoutes.routes,
       theme: ThemeData(
         useMaterial3: true,

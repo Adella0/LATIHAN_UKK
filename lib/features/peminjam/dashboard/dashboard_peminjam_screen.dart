@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../dashboard/keranjang.dart';
 
 class DashboardPeminjamScreen extends StatefulWidget {
   const DashboardPeminjamScreen({super.key});
@@ -15,13 +16,29 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
   List<Map<String, dynamic>> categories = [];
   Map<String, dynamic>? userData;
   bool isLoading = true;
-  int cartCount = 2; // Contoh jumlah unit di keranjang sesuai gambar
+  
+  // ID Alat sebagai Key, Jumlah sebagai Value
+  Map<int, int> cartItems = {}; 
+  late Future<List<dynamic>> _alatFuture;
+
+  // Menghitung total unit dari semua alat yang ada di keranjang
+  int get cartCount {
+    int total = 0;
+    cartItems.forEach((id, qty) => total += qty);
+    return total;
+  }
 
   @override
   void initState() {
     super.initState();
-    _fetchInitialData();
     _loadUserData();
+    _fetchInitialData();
+    _alatFuture = _getAlatData(); 
+  }
+
+  Future<List<dynamic>> _getAlatData() async {
+    final data = await supabase.from('alat').select('*, kategori(nama_kategori)').order('id_alat');
+    return data as List<dynamic>;
   }
 
   Future<void> _loadUserData() async {
@@ -41,6 +58,25 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
       });
     } catch (e) {
       debugPrint("Error fetching categories: $e");
+    }
+  }
+
+  void _addToCart(int idAlat, int stokMaksimal) {
+    int currentQty = cartItems[idAlat] ?? 0;
+    if (currentQty < stokMaksimal) {
+      setState(() {
+        cartItems[idAlat] = currentQty + 1;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Berhasil menambah 1 unit"),
+          duration: Duration(milliseconds: 500),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Batas stok tercapai")),
+      );
     }
   }
 
@@ -83,11 +119,7 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
             children: [
               Text(
                 "Hi, ${userData?['nama'] ?? 'User'}!",
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF02182F),
-                ),
+                style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF02182F)),
               ),
               Text(
                 userData?['role'] ?? 'Peminjam',
@@ -105,10 +137,7 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 25),
       child: Container(
         height: 50,
-        decoration: BoxDecoration(
-          color: const Color(0xFFD1D8E0), // Abu-abu sedikit kebiruan sesuai gambar
-          borderRadius: BorderRadius.circular(25),
-        ),
+        decoration: BoxDecoration(color: const Color(0xFFD1D8E0), borderRadius: BorderRadius.circular(25)),
         child: TextField(
           decoration: InputDecoration(
             hintText: "Cari...",
@@ -160,11 +189,10 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
 
   Widget _buildAlatGrid() {
     return FutureBuilder(
-      future: supabase.from('alat').select('*, kategori(nama_kategori)').order('id_alat'),
+      future: _alatFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         final dataAlat = snapshot.data as List<dynamic>? ?? [];
-
         final filteredAlat = selectedKategori == "All"
             ? dataAlat
             : dataAlat.where((a) => a['kategori']['nama_kategori'] == selectedKategori).toList();
@@ -193,9 +221,7 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Stack(
         children: [
@@ -212,29 +238,38 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
               _buildCardFooter(item, isAvailable),
             ],
           ),
-          // Icon Plus Sesuai Gambar
+          // Icon Plus dengan Badge Angka
           Positioned(
             top: 10,
             left: 10,
             child: GestureDetector(
-              onTap: () { /* Logika Tambah ke Keranjang */ },
-              child: const Icon(Icons.add_circle, color: Color(0xFF02182F), size: 28),
+              onTap: () => _addToCart(item['id_alat'], stok),
+              child: Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  Icon(
+                    Icons.add_circle,
+                    color: cartItems.containsKey(item['id_alat']) ? const Color(0xFF1ED72D) : const Color(0xFF02182F),
+                    size: 30,
+                  ),
+                  if ((cartItems[item['id_alat']] ?? 0) > 0)
+                    CircleAvatar(
+                      radius: 8,
+                      backgroundColor: Colors.red,
+                      child: Text(cartItems[item['id_alat']].toString(), style: const TextStyle(fontSize: 9, color: Colors.white)),
+                    ),
+                ],
+              ),
             ),
           ),
-          // Label Kategori di pojok kanan atas gambar
+          // Label Kategori (Pojok Kanan Atas)
           Positioned(
             top: 10,
             right: 10,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: const Color(0xFF02182F),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Text(
-                kategoriName,
-                style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFF02182F), borderRadius: BorderRadius.circular(5)),
+              child: Text(kategoriName, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -251,7 +286,7 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Stok : $isAvailable unit", style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold)),
+              Text("Stok : ${item['stok_total']} unit", style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -269,14 +304,11 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF02182F),
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: const Color(0xFF02182F), borderRadius: BorderRadius.circular(8)),
             child: Text(
               item['nama_alat'] ?? "",
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              style: GoogleFonts.poppins(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -287,19 +319,24 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
   }
 
   Widget _buildCartFab() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: FloatingActionButton.extended(
-        onPressed: () { /* Navigasi ke Keranjang */ },
-        backgroundColor: const Color(0xFF02182F),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        label: Row(
-          children: [
-            const Icon(Icons.shopping_cart, color: Colors.white),
-            const SizedBox(width: 8),
-            Text("($cartCount)unit", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
-          ],
-        ),
+    return FloatingActionButton.extended(
+     onPressed: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const KeranjangScreen(),
+      settings: RouteSettings(arguments: cartItems), 
+    ),
+  );
+},
+      backgroundColor: const Color(0xFF02182F),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      label: Row(
+        children: [
+          const Icon(Icons.shopping_cart, color: Colors.white),
+          const SizedBox(width: 8),
+          Text("($cartCount) unit", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
