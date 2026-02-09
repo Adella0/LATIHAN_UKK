@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../dashboard/keranjang.dart';
+import '../ui/profil.dart';
 
 class DashboardPeminjamScreen extends StatefulWidget {
   const DashboardPeminjamScreen({super.key});
@@ -28,26 +29,43 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
     return total;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-    _fetchInitialData();
-    _alatFuture = _getAlatData(); 
-  }
+ @override
+void initState() {
+  super.initState();
+  // Selalu jalankan ini untuk memastikan data sinkron dengan session aktif
+  _loadUserData(); 
+  _fetchInitialData();
+  _alatFuture = _getAlatData(); 
+}
 
   Future<List<dynamic>> _getAlatData() async {
     final data = await supabase.from('alat').select('*, kategori(nama_kategori)').order('id_alat');
     return data as List<dynamic>;
   }
 
-  Future<void> _loadUserData() async {
-    final user = supabase.auth.currentUser;
-    if (user != null) {
-      final data = await supabase.from('users').select().eq('id_user', user.id).single();
-      setState(() => userData = data);
+ Future<void> _loadUserData() async {
+  // 1. Ambil user yang sedang aktif login saat ini
+  final user = supabase.auth.currentUser;
+
+  if (user != null) {
+    try {
+      // 2. Query ke tabel users BERDASARKAN id_user yang sedang login
+      final data = await supabase
+          .from('users')
+          .select()
+          .eq('id_user', user.id) // Pastikan filter ini menggunakan ID user aktif
+          .maybeSingle(); // Menggunakan maybeSingle lebih aman daripada single
+
+      if (data != null) {
+        setState(() {
+          userData = data;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading user data: $e");
     }
   }
+}
 
   Future<void> _fetchInitialData() async {
     try {
@@ -108,10 +126,13 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 25),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 35,
-            backgroundColor: Color(0xFFBDC3C7),
-            child: Icon(Icons.person, size: 45, color: Colors.white),
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilScreen())),
+            child: const CircleAvatar(
+              radius: 28,
+              backgroundColor: Color(0xFF424242),
+              child: Icon(Icons.person, size: 38, color: Colors.white),
+            ),
           ),
           const SizedBox(width: 15),
           Column(
@@ -119,7 +140,7 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
             children: [
               Text(
                 "Hi, ${userData?['nama'] ?? 'User'}!",
-                style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF02182F)),
+                style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF02182F)),
               ),
               Text(
                 userData?['role'] ?? 'Peminjam',
@@ -320,15 +341,24 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
 
   Widget _buildCartFab() {
     return FloatingActionButton.extended(
-     onPressed: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const KeranjangScreen(),
-      settings: RouteSettings(arguments: cartItems), 
-    ),
-  );
-},
+     onPressed: () async {
+      // Tunggu hasil (result) dari halaman keranjang
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const KeranjangScreen(),
+          settings: RouteSettings(arguments: cartItems),
+        ),
+      );
+
+      // Jika result tidak null (berarti user menekan tombol kembali/pop dengan data)
+      if (result != null && result is Map<int, int>) {
+        setState(() {
+          // UPDATE cartItems di dashboard dengan data terbaru dari keranjang
+          cartItems = result;
+        });
+      }
+    },
       backgroundColor: const Color(0xFF02182F),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       label: Row(

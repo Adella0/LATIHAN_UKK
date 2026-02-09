@@ -1,3 +1,4 @@
+import 'package:apk_peminjaman/features/petugas/ui/main_nav_petugas.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../peminjam/ui/main_nav_peminjam.dart';
@@ -58,6 +59,12 @@ Future<void> _handleLogin() async {
               context,
               MaterialPageRoute(builder: (context) => const MainNavPeminjam()),
             );
+             } else if (roleFromDb == 'petugas') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MainNavPetugas()),
+            );
+
           } else {
             throw "Role tidak dikenali";
           }

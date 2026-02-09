@@ -24,7 +24,6 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        // Mengambil nama_lengkap dan role dari tabel users
         final data = await Supabase.instance.client
             .from('users')
             .select('nama_lengkap, role')
@@ -63,12 +62,12 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 40),
-                    // Header Profile
+                    // Header Profile sesuai Gambar
                     Row(
                       children: [
                         const CircleAvatar(
                           radius: 38,
-                          backgroundColor: Color(0xFF424242),
+                          backgroundColor: Color(0xFF34495E), // Warna avatar gelap
                           child: Icon(Icons.person, size: 50, color: Colors.white),
                         ),
                         const SizedBox(width: 15),
@@ -78,15 +77,15 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
                             Text(
                               "Hi, $userName!",
                               style: GoogleFonts.poppins(
-                                fontSize: 20,
+                                fontSize: 22,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                                color: primaryBlue,
                               ),
                             ),
                             Text(
                               userRole,
                               style: GoogleFonts.poppins(
-                                fontSize: 15,
+                                fontSize: 16,
                                 color: Colors.black54,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -95,58 +94,57 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 35),
+                    const SizedBox(height: 40),
 
                     // Grafik Section
                     Row(
                       children: [
                         Container(
-                          width: 18,
-                          height: 18,
+                          width: 20,
+                          height: 20,
                           decoration: BoxDecoration(
                             color: primaryBlue,
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(5),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Text(
                           "Grafik alat paling sering dipinjam",
                           style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.bold,
                             fontSize: 14,
+                            color: Colors.black,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 25),
+                    const SizedBox(height: 30),
                     _buildChartSection(primaryBlue, softGrey),
                     
                     const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20),
-                      child: Divider(color: Colors.black12, thickness: 1),
+                      padding: EdgeInsets.symmetric(vertical: 25),
+                      child: Divider(color: Colors.black12, thickness: 1.5),
                     ),
 
                     // Alat yang sedang dipinjam Section
                     _buildSectionHeader("Alat yang sedang dipinjam"),
                     const SizedBox(height: 15),
-                    _buildToolItem("Proyektor", "Elektronik", "1", "assets/proyektor.png"),
-                    _buildToolItem("Gitar", "Alat musik", "1", "assets/gitar.png"),
+                    _buildToolItem("Proyektor", "Elektronik", "1", primaryBlue),
+                    _buildToolItem("Gitar", "Alat musik", "1", primaryBlue),
 
-                    const SizedBox(height: 25),
+                    const SizedBox(height: 30),
 
                     // Daftar alat segera dikembalikan Section
                     _buildSectionHeader("Daftar alat segera dikembalikan"),
                     const SizedBox(height: 15),
-                    _buildToolItem("Proyektor", "Elektronik", "1", "assets/proyektor.png"),
-                    _buildToolItem("Gitar", "Alat musik", "1", "assets/gitar.png"),
+                    _buildToolItem("Proyektor", "Elektronik", "1", primaryBlue),
+                    _buildToolItem("Gitar", "Alat musik", "1", primaryBlue),
 
-                    const SizedBox(height: 120),
+                    const SizedBox(height: 120), // Padding bawah agar tidak tertutup nav
                   ],
                 ),
               ),
       ),
-      extendBody: true,
-      bottomNavigationBar: _buildBottomNav(primaryBlue),
     );
   }
 
@@ -156,18 +154,19 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
       children: [
         Text(
           title,
-          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold),
+          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: const Color(0xFFD9E0E6),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
             children: [
-              Text("Detail", style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500)),
-              const Icon(Icons.chevron_right, size: 14),
+              Text("Detail", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_forward_ios, size: 10),
             ],
           ),
         ),
@@ -175,41 +174,43 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
     );
   }
 
-  Widget _buildToolItem(String name, String category, String unit, String imgPath) {
+  Widget _buildToolItem(String name, String category, String unit, Color primaryBlue) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5)),
         ],
-        border: Border.all(color: Colors.black12.withOpacity(0.05)),
       ),
       child: Row(
         children: [
-          // Placeholder Image
+          // Gambar Alat (Disesuaikan dengan aset yang ada atau placeholder)
           Container(
-            width: 50,
-            height: 50,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.image, color: Colors.grey), 
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: const Icon(Icons.image, size: 40, color: Colors.grey),
+            ),
           ),
           const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text(category, style: GoogleFonts.poppins(color: const Color(0xFF02182F), fontSize: 10, fontWeight: FontWeight.w600)),
+                Text(name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(category, style: GoogleFonts.poppins(color: primaryBlue, fontSize: 11, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
-          Text("($unit) unit", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
+          Text("($unit) unit", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: primaryBlue)),
         ],
       ),
     );
@@ -217,15 +218,15 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
 
   Widget _buildChartSection(Color blue, Color grey) {
     return SizedBox(
-      height: 180,
+      height: 200,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           RotatedBox(
             quarterTurns: 3,
-            child: Text("( Jumlah alat yang dipinjam )", style: GoogleFonts.poppins(fontSize: 9, color: Colors.black54)),
+            child: Text("( Jumlah alat yang dipinjam )", style: GoogleFonts.poppins(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.w500)),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 15),
           Expanded(
             child: Stack(
               children: [
@@ -234,16 +235,16 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
                   children: List.generate(5, (index) => _buildYAxisLine((200 - (index * 50)).toString())),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(left: 30, bottom: 20),
+                  padding: const EdgeInsets.only(left: 35, bottom: 25),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _buildBar("Proyektor", 150, blue),
-                      _buildBar("Tv", 140, grey),
-                      _buildBar("Bola basket", 120, blue),
-                      _buildBar("Remot", 80, grey),
-                      _buildBar("Meja", 60, blue),
+                      _buildBar("Proyektor", 160, blue),
+                      _buildBar("Tv", 150, grey),
+                      _buildBar("Bola basket", 130, blue),
+                      _buildBar("Remot", 90, grey),
+                      _buildBar("Meja", 70, blue),
                     ],
                   ),
                 ),
@@ -258,8 +259,8 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
   Widget _buildYAxisLine(String val) {
     return Row(
       children: [
-        SizedBox(width: 25, child: Text(val, style: GoogleFonts.poppins(fontSize: 9))),
-        const Expanded(child: Divider(color: Colors.black12, thickness: 1)),
+        SizedBox(width: 30, child: Text(val, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500))),
+        const Expanded(child: Divider(color: Colors.black26, thickness: 1)),
       ],
     );
   }
@@ -269,51 +270,15 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Container(
-          width: 22,
+          width: 25,
           height: height,
-          decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.vertical(top: Radius.circular(2))),
+          decoration: BoxDecoration(
+            color: color, 
+            borderRadius: BorderRadius.circular(4),
+          ),
         ),
-        const SizedBox(height: 8),
-        Text(label, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w500)),
-      ],
-    );
-  }
-
-  Widget _buildBottomNav(Color blue) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(25, 0, 25, 25),
-      height: 70,
-      decoration: BoxDecoration(
-        color: blue,
-        borderRadius: BorderRadius.circular(35),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(Icons.home, "Dashboard", true),
-          _buildNavItem(Icons.verified_outlined, "Persetujuan", false),
-          _buildNavItem(Icons.assignment_return_outlined, "Pengembalian", false),
-          _buildNavItem(Icons.insert_drive_file_outlined, "Laporan", false),
-          _buildNavItem(Icons.settings_outlined, "Setting", false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: Colors.white, size: 22),
-        const SizedBox(height: 2),
-        Text(label, style: GoogleFonts.poppins(color: Colors.white, fontSize: 8)),
-        if (isActive)
-          Container(
-            margin: const EdgeInsets.only(top: 4),
-            height: 2,
-            width: 18,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(2)),
-          )
+        const SizedBox(height: 10),
+        Text(label, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold)),
       ],
     );
   }
