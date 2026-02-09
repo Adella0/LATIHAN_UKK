@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+
 class TambahPenggunaDialog extends StatefulWidget {
   const TambahPenggunaDialog({super.key});
 
@@ -24,38 +25,31 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
   setState(() => _isLoading = true);
 
   try {
-    // 1. DAFTARKAN AUTH
-    final res = await supabase.auth.signUp(
-      email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-    );
+    // KITA TIDAK PAKAI supabase.auth.signUp agar Admin tidak Logout.
+    // Kita langsung simpan ke tabel 'users'.
+    
+    await supabase.from('users').insert({
+      // Karena tidak lewat Auth, kita buat ID unik sementara (misal: pakai timestamp)
+      // ATAU biarkan database yang meng-generate ID-nya.
+      'nama': _namaController.text.trim(),
+      'email': _emailController.text.trim(),
+      'password': _passwordController.text.trim(), // Simpan teks biasa (Hanya untuk latihan/tugas)
+      'role': _selectedRole?.toLowerCase(),
+    });
 
-    if (res.user != null) {
-      // 2. MASUKKAN MANUAL KE TABEL USERS (Pastikan nama kolom sesuai tabelmu)
-      // Di dalam fungsi _tambahPengguna
-await supabase.from('users').insert({
-  'id_user': res.user!.id,
-  'email': _emailController.text.trim(),
-  'nama': _namaController.text.trim(), // GANTI 'nama_user' JADI 'nama'
-  'role': _selectedRole?.toLowerCase(), 
-});
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("BERHASIL! Role sudah sesuai."), backgroundColor: Colors.green),
-        );
-      }
+    if (mounted) {
+      Navigator.pop(context); // Tutup dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("User berhasil ditambahkan ke list!"),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
-  } on AuthException catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Gagal Auth: ${e.message}"), backgroundColor: Colors.red),
-    );
   } catch (e) {
-    // Kalau error di sini, berarti nama kolom di tabel 'users' ada yang beda
-    print("DETAIL ERROR DATABASE: $e");
+    print("DETAIL ERROR: $e");
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Gagal Simpan ke Tabel: $e"), backgroundColor: Colors.red),
+      SnackBar(content: Text("Gagal Simpan: $e"), backgroundColor: Colors.red),
     );
   } finally {
     if (mounted) setState(() => _isLoading = false);

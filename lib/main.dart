@@ -21,15 +21,13 @@ class MyApp extends StatelessWidget {
     // Ambil user yang sedang login
     final session = Supabase.instance.client.auth.currentSession;
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'SarprasGo',
-      // Logika: Jika tidak ada session, ke login. Jika ada, ke main_peminjam
-      initialRoute: session == null ? AppRoutes.initial : '/main_peminjam', 
-      routes: AppRoutes.routes,
-      theme: ThemeData(
-        useMaterial3: true,
-      ),
-    );
+   return MaterialApp(
+  debugShowCheckedModeBanner: false,
+  title: 'Aplikasi Peminjaman',
+  // Gunakan initialRoute dari AppRoutes
+  initialRoute: AppRoutes.initial, 
+  // Daftarkan rute yang sudah kita buat
+  routes: AppRoutes.routes,
+);
   }
 }

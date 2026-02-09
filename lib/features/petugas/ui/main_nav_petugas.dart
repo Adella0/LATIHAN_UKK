@@ -1,11 +1,7 @@
 import 'package:apk_peminjaman/features/petugas/dashboard/dashboard_petugas_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// Silakan sesuaikan import ini dengan lokasi file screen petugas Anda nanti
-// import '../dashboard/dashboard_petugas_screen.dart'; 
-// import '../persetujuan/persetujuan_screen.dart';
-// import '../pengembalian/pengembalian_screen.dart';
-// import '../laporan/laporan_screen.dart';
+import '../persetujuan/form_persetujuan.dart';
 
 class MainNavPetugas extends StatefulWidget {
   const MainNavPetugas({super.key});
@@ -19,7 +15,8 @@ class _MainNavPetugasState extends State<MainNavPetugas> {
 
   // Daftar halaman untuk Petugas (Sesuaikan dengan Class Screen Anda)
   final List<Widget> _pages = [
-    const DashboardPetugasScreen() // Ganti dengan DashboardPetugasScreen()
+    const DashboardPetugasScreen(),// Ganti dengan DashboardPetugasScreen()
+    const FormPersetujuan()
   ];
 
   @override
