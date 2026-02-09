@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../peminjam/ui/main_nav_peminjam.dart';
+import '../admin/ui/main_nav_admin.dart';
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,7 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   // Fungsi Login logic
  // Cari bagian _handleLogin() dan pastikan logikanya seperti ini:
 Future<void> _handleLogin() async {
-  // Validasi input kosong
   if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Email dan Password tidak boleh kosong")),
@@ -35,21 +37,30 @@ Future<void> _handleLogin() async {
 
     final user = response.user;
     if (user != null) {
-      // Ambil data role dari tabel users
       final responseData = await Supabase.instance.client
           .from('users')
           .select('role')
           .eq('id_user', user.id)
-          .maybeSingle(); // Menggunakan maybeSingle agar lebih aman jika data tidak ada
+          .maybeSingle();
 
       if (responseData != null && responseData['role'] != null) {
-        // Normalisasi teks role: admin, petugas, atau peminjam
         String roleFromDb = responseData['role'].toString().trim().toLowerCase();
         
         if (mounted) {
-          // Navigasi ke route yang sesuai di main.dart
-          // Contoh: '/dashboard_admin'
-          Navigator.pushReplacementNamed(context, '/dashboard_$roleFromDb');
+          // LOGIKA NAVIGASI: Panggil MainNav, bukan Dashboard-nya saja
+          if (roleFromDb == 'admin') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MainNavAdmin()),
+            );
+          } else if (roleFromDb == 'peminjam') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MainNavPeminjam()),
+            );
+          } else {
+            throw "Role tidak dikenali";
+          }
         }
       } else {
         throw "Data user tidak ditemukan di database.";

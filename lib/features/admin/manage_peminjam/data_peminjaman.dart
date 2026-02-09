@@ -218,128 +218,161 @@ class _DataPeminjamScreenState extends State<DataPeminjamScreen> {
     );
   }
 
-  Widget _buildCardPeminjam(Map<String, dynamic> data) {
-    final String nama = data['users']?['nama'] ?? "User";
-    final String role = data['users']?['role'] ?? "Peminjam";
-    final String status = data['status_transaksi'] ?? "disetujui";
+ Widget _buildCardPeminjam(Map<String, dynamic> data) {
+  final String nama = data['users']?['nama'] ?? "User";
+  final String role = data['users']?['role'] ?? "Peminjam";
+  final String status = data['status_transaksi'] ?? "disetujui";
 
-    // --- FUNGSI FORMAT TANGGAL ---
-    String formatTanggal(String? rawDate) {
-      if (rawDate == null || rawDate == "-") return "-";
-      try {
-        DateTime dt = DateTime.parse(rawDate);
-        String day = dt.day.toString().padLeft(2, '0');
-        String month = dt.month.toString().padLeft(2, '0');
-        String year = dt.year.toString();
-        String hour = dt.hour.toString().padLeft(2, '0');
-        String minute = dt.minute.toString().padLeft(2, '0');
-        return "$day/$month/$year | $hour.$minute";
-      } catch (e) {
-        return rawDate;
-      }
-    }
+  String formatTanggal(String? rawDate) {
+    if (rawDate == null || rawDate == "-") return "-";
+    try {
+      DateTime dt = DateTime.parse(rawDate);
+      return "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} | ${dt.hour.toString().padLeft(2, '0')}.${dt.minute.toString().padLeft(2, '0')}";
+    } catch (e) { return rawDate; }
+  }
 
-    String tglPengambilan = formatTanggal(data['pengambilan']);
-    String tglTenggat = formatTanggal(data['tenggat']);
-
-    List details = data['detail_peminjaman'] ?? [];
-    int totalUnit = 0;
-    for (var item in details) {
-      totalUnit += (item['jumlah'] as int? ?? 0);
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16), 
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 20, 
-                backgroundColor: Color(0xFF2D3748), 
-                child: Icon(Icons.person, color: Colors.white, size: 20)
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(nama, style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 14, color: const Color(0xFF02182F))),
-                    Text(role, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[600])),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: status.toLowerCase() == "ditolak" ? const Color(0xFFB91C1C) : const Color(0xFF4A4E54),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(status.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => _showDeleteDialog(data['id_pinjam']),
-                child: const Icon(Icons.delete_outline, color: Color(0xFFB91C1C), size: 18),
-              ),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Menggunakan Expanded agar teks tanggal tidak overflow (tabrakan)
-              Expanded(flex: 4, child: _buildInfoItem("Pengambilan", tglPengambilan)),
-              Expanded(flex: 4, child: _buildInfoItem("Tenggat", tglTenggat)),
-              Expanded(flex: 2, child: _buildInfoItem("Alat", "$totalUnit Unit")), 
-            ],
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => DetailPeminjamanScreen(data: data)),
-                );
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+  return Container(
+    margin: const EdgeInsets.only(bottom: 20),
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(35),
+      boxShadow: [
+        BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5)),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // --- BAGIAN ATAS (Profil & Status) ---
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CircleAvatar(
+              radius: 28, // Ukuran pas, tidak terlalu besar
+              backgroundColor: Color(0xFF334155),
+              child: Icon(Icons.person, color: Colors.white, size: 35),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Lihat detail", style: GoogleFonts.poppins(fontSize: 10, color: Colors.blue[700], decoration: TextDecoration.underline)),
-                  Icon(Icons.chevron_right, size: 14, color: Colors.blue[700]),
+                  const SizedBox(height: 4),
+                  Text(nama,
+                      style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18, // Dikecilkan dari 24 ke 18
+                          color: const Color(0xFF02182F))),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(role,
+                        style: GoogleFonts.poppins(
+                            fontSize: 10, fontWeight: FontWeight.w600, color: const Color(0xFF02182F))),
+                  ),
                 ],
               ),
             ),
-          )
-        ],
-      ),
-    );
-  }
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  children: [
+                    Text("Status", style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF02182F))),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => _showDeleteDialog(data['id_pinjam']),
+                      child: const Icon(Icons.delete, color: Color(0xFFB91C1C), size: 22),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5), // Kolom status dirampingkan
+                  decoration: BoxDecoration(
+                    color: status.toLowerCase() == "ditolak" ? const Color(0xFFC01008) : const Color(0xFF2E7D32),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Text(
+                    status == "disetujui" ? "Disetujui" : "Ditolak",
+                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: 20),
 
-  Widget _buildInfoItem(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey[500], fontWeight: FontWeight.w500)),
-        const SizedBox(height: 2),
-        Text(value, 
-          style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.w600, color: const Color(0xFF02182F))
+        // --- BAGIAN TENGAH ---
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildInfoItem("Pengambilan", formatTanggal(data['pengambilan'])),
+            _buildInfoItem("Tenggat", formatTanggal(data['tenggat'])),
+            _buildInfoItem("Alat", (data['detail_peminjaman']?.length ?? 0).toString(), isCenter: true),
+          ],
+        ),
+
+        const SizedBox(height: 15),
+
+        // --- LIHAT DETAIL (Garis Bawah Diperbaiki) ---
+        Align(
+          alignment: Alignment.centerRight,
+          child: InkWell(
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => DetailPeminjamanScreen(data: data)));
+            },
+            child: IntrinsicWidth( // Memastikan garis bawah sepanjang teks saja
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Text("Lihat detail",
+                          style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: const Color(0xFF02182F))),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right, size: 14, color: Color(0xFF02182F)),
+                    ],
+                  ),
+                  Container(
+                    height: 1, 
+                    margin: const EdgeInsets.only(right: 18), // Menyesuaikan agar tidak melebihi icon
+                    color: const Color(0xFF02182F)
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
+
+Widget _buildInfoItem(String label, String value, {bool isCenter = false}) {
+  return Column(
+    crossAxisAlignment: isCenter ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+    children: [
+      Text(label,
+          style: GoogleFonts.poppins(
+            fontSize: 14, // Dikecilkan dari 18 ke 14
+            fontWeight: FontWeight.w700, 
+            color: const Color(0xFF02182F)
+          )),
+      const SizedBox(height: 4),
+      Text(value,
+          style: GoogleFonts.poppins(
+            fontSize: 11, // Dikecilkan agar pas satu baris
+            fontWeight: FontWeight.w500, 
+            color: Colors.black54
+          )),
+    ],
+  );
+}
 }

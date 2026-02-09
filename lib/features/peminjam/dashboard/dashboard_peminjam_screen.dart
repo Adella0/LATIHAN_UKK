@@ -10,243 +10,231 @@ class DashboardPeminjamScreen extends StatefulWidget {
 }
 
 class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
-  String userName = "Loading...";
-  String selectedCategory = "All";
-  int cartCount = 0;
-  final TextEditingController _searchController = TextEditingController();
-  
-  final List<String> categories = ["All", "Elektronik", "Olahraga", "Alat musik", "Umum"];
+  final supabase = Supabase.instance.client;
+  String selectedKategori = "All";
+  List<Map<String, dynamic>> categories = [];
+  Map<String, dynamic>? userData;
+  bool isLoading = true;
+  int cartCount = 2; // Contoh jumlah unit di keranjang sesuai gambar
 
   @override
   void initState() {
     super.initState();
+    _fetchInitialData();
     _loadUserData();
   }
 
   Future<void> _loadUserData() async {
-    final user = Supabase.instance.client.auth.currentUser;
+    final user = supabase.auth.currentUser;
     if (user != null) {
-      final data = await Supabase.instance.client
-          .from('users')
-          .select('nama_lengkap')
-          .eq('id_user', user.id)
-          .single();
+      final data = await supabase.from('users').select().eq('id_user', user.id).single();
+      setState(() => userData = data);
+    }
+  }
+
+  Future<void> _fetchInitialData() async {
+    try {
+      final catData = await supabase.from('kategori').select();
       setState(() {
-        userName = data['nama_lengkap'] ?? "User";
+        categories = List<Map<String, dynamic>>.from(catData);
+        isLoading = false;
       });
+    } catch (e) {
+      debugPrint("Error fetching categories: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF02182F);
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 25),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 40),
-                  // Header Profile
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 35,
-                        backgroundColor: Color(0xFF424242),
-                        child: Icon(Icons.person, size: 45, color: Colors.white),
-                      ),
-                      const SizedBox(width: 15),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Hi, $userName!", 
-                            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
-                          Text("Peminjam", 
-                            style: GoogleFonts.poppins(fontSize: 14, color: Colors.black54)),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 30),
-
-                  // Search Bar
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD9E0E6),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: "Cari...",
-                        prefixIcon: const Icon(Icons.search),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                        hintStyle: GoogleFonts.poppins(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-
-                  // Category Filter
-                  SizedBox(
-                    height: 40,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: categories.length,
-                      itemBuilder: (context, index) {
-                        bool isSelected = selectedCategory == categories[index];
-                        return GestureDetector(
-                          onTap: () => setState(() => selectedCategory = categories[index]),
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 10),
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            decoration: BoxDecoration(
-                              color: isSelected 
-                                  ? (categories[index] == "All" ? primaryBlue : const Color(0xFFC9D0D6))
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: isSelected ? Colors.transparent : Colors.black26),
-                            ),
-                            child: Center(
-                              child: Text(
-                                categories[index],
-                                style: GoogleFonts.poppins(
-                                  color: isSelected && categories[index] == "All" ? Colors.white : Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  // Grid Alat
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 20,
-                    crossAxisSpacing: 20,
-                    childAspectRatio: 0.75,
-                    children: [
-                      _buildToolCard("Proyektor", "Elektronik", "5", "TERSEDIA", true),
-                      _buildToolCard("Gitar", "Alat musik", "0", "KOSONG", false),
-                    ],
-                  ),
-                  const SizedBox(height: 100),
-                ],
-              ),
-            ),
-
-            // Floating Cart Button
-            Positioned(
-              bottom: 110,
-              right: 0,
-              child: GestureDetector(
-                onTap: () { /* Navigasi ke Keranjang */ },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                  decoration: const BoxDecoration(
-                    color: primaryBlue,
-                    borderRadius: BorderRadius.only(topLeft: Radius.circular(15), bottomLeft: Radius.circular(15)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.shopping_bag, color: Colors.white, size: 20),
-                      const SizedBox(width: 8),
-                      Text("($cartCount)unit", 
-                        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            const SizedBox(height: 25),
+            _buildHeader(),
+            const SizedBox(height: 25),
+            _buildSearchBar(),
+            const SizedBox(height: 20),
+            _buildCategoryList(),
+            const SizedBox(height: 10),
+            Expanded(child: _buildAlatGrid()),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(primaryBlue),
+      floatingActionButton: _buildCartFab(),
     );
   }
 
-  Widget _buildToolCard(String name, String cat, String stock, String status, bool isAvailable) {
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 25),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 35,
+            backgroundColor: Color(0xFFBDC3C7),
+            child: Icon(Icons.person, size: 45, color: Colors.white),
+          ),
+          const SizedBox(width: 15),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Hi, ${userData?['nama'] ?? 'User'}!",
+                style: GoogleFonts.poppins(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF02182F),
+                ),
+              ),
+              Text(
+                userData?['role'] ?? 'Peminjam',
+                style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 25),
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: const Color(0xFFD1D8E0), // Abu-abu sedikit kebiruan sesuai gambar
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: TextField(
+          decoration: InputDecoration(
+            hintText: "Cari...",
+            hintStyle: GoogleFonts.poppins(color: Colors.black54),
+            prefixIcon: const Icon(Icons.search, color: Colors.black87),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryList() {
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 25),
+        itemCount: categories.length + 1,
+        itemBuilder: (context, index) {
+          String name = index == 0 ? "All" : (categories[index - 1]['nama_kategori'] ?? "");
+          bool isSelected = selectedKategori == name;
+          return GestureDetector(
+            onTap: () => setState(() => selectedKategori = name),
+            child: Container(
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF02182F) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF02182F)),
+              ),
+              child: Text(
+                name,
+                style: GoogleFonts.poppins(
+                  color: isSelected ? Colors.white : const Color(0xFF02182F),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAlatGrid() {
+    return FutureBuilder(
+      future: supabase.from('alat').select('*, kategori(nama_kategori)').order('id_alat'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        final dataAlat = snapshot.data as List<dynamic>? ?? [];
+
+        final filteredAlat = selectedKategori == "All"
+            ? dataAlat
+            : dataAlat.where((a) => a['kategori']['nama_kategori'] == selectedKategori).toList();
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(25),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.8,
+            crossAxisSpacing: 15,
+            mainAxisSpacing: 15,
+          ),
+          itemCount: filteredAlat.length,
+          itemBuilder: (context, index) => _buildAlatCard(filteredAlat[index]),
+        );
+      },
+    );
+  }
+
+  Widget _buildAlatCard(dynamic item) {
+    final int stok = item['stok_total'] ?? 0;
+    final bool isAvailable = stok > 0;
+    final String kategoriName = item['kategori']?['nama_kategori'] ?? "Umum";
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5)),
+        ],
       ),
-      child: Column(
+      child: Stack(
         children: [
-          Stack(
+          Column(
             children: [
-              Container(
-                height: 120,
-                decoration: const BoxDecoration(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
-                ),
-                child: const Center(child: Icon(Icons.image, size: 50, color: Colors.grey)),
-              ),
-              // Tombol Tambah [+]
-              Positioned(
-                top: 10, left: 10,
-                child: GestureDetector(
-                  onTap: () => setState(() => cartCount++),
-                  child: const CircleAvatar(
-                    radius: 12, backgroundColor: Color(0xFF02182F),
-                    child: Icon(Icons.add, size: 18, color: Colors.white),
-                  ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: item['foto_url'] != null
+                      ? Image.network(item['foto_url'], fit: BoxFit.contain)
+                      : const Icon(Icons.image_not_supported, size: 50),
                 ),
               ),
-              // Label Kategori
-              Positioned(
-                top: 10, right: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFF02182F), borderRadius: BorderRadius.circular(5)),
-                  child: Text(cat, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                ),
-              ),
+              _buildCardFooter(item, isAvailable),
             ],
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Stok : $stock unit", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w500)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isAvailable ? Colors.green : Colors.red,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(status, style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(color: const Color(0xFF02182F), borderRadius: BorderRadius.circular(10)),
-                  child: Center(
-                    child: Text(name, style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                  ),
-                ),
-              ],
+          // Icon Plus Sesuai Gambar
+          Positioned(
+            top: 10,
+            left: 10,
+            child: GestureDetector(
+              onTap: () { /* Logika Tambah ke Keranjang */ },
+              child: const Icon(Icons.add_circle, color: Color(0xFF02182F), size: 28),
+            ),
+          ),
+          // Label Kategori di pojok kanan atas gambar
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF02182F),
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                kategoriName,
+                style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
@@ -254,29 +242,65 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
     );
   }
 
-  Widget _buildBottomNav(Color blue) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(25, 0, 25, 25),
-      height: 70,
-      decoration: BoxDecoration(color: blue, borderRadius: BorderRadius.circular(35)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+  Widget _buildCardFooter(dynamic item, bool isAvailable) {
+    return Padding(
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildNavItem(Icons.home, "Dashboard", true),
-          _buildNavItem(Icons.shopping_cart_outlined, "Pinjaman saya", false),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Stok : $isAvailable unit", style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isAvailable ? const Color(0xFF1ED72D) : const Color(0xFFE52121),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  isAvailable ? "TERSEDIA" : "KOSONG",
+                  style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF02182F),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              item['nama_alat'] ?? "",
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: Colors.white, size: 24),
-        Text(label, style: GoogleFonts.poppins(color: Colors.white, fontSize: 9)),
-        if (isActive) Container(margin: const EdgeInsets.only(top: 4), height: 2, width: 20, color: Colors.white),
-      ],
+  Widget _buildCartFab() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: FloatingActionButton.extended(
+        onPressed: () { /* Navigasi ke Keranjang */ },
+        backgroundColor: const Color(0xFF02182F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        label: Row(
+          children: [
+            const Icon(Icons.shopping_cart, color: Colors.white),
+            const SizedBox(width: 8),
+            Text("($cartCount)unit", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
     );
   }
 }

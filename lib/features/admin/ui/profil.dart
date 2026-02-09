@@ -41,57 +41,89 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   // Dialog Logout Sesuai Desain
-  void _showLogoutDialog() {
+ void _showLogoutDialog() {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withOpacity(0.4), // Overlay lebih soft
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: const EdgeInsets.all(20),
+        backgroundColor: const Color(0xFFEBE6ED), // Warna ungu muda sesuai gambar
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               "Logout?",
-              style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
+              style: GoogleFonts.poppins(
+                fontSize: 22, 
+                fontWeight: FontWeight.w800, // Lebih tebal
+                color: const Color(0xFF02182F),
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Text(
               "Apakah kamu yakin ingin keluar dari akun?",
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(fontSize: 14),
+              style: GoogleFonts.poppins(
+                fontSize: 14, 
+                color: Colors.black87,
+                height: 1.3,
+              ),
             ),
-            const SizedBox(height: 25),
+            const SizedBox(height: 30),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 // Tombol Tidak
-                SizedBox(
-                  width: 100,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey[300],
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: SizedBox(
+                      height: 45,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE0E0E0),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(
+                          "Tidak", 
+                          style: GoogleFonts.poppins(
+                            color: Colors.black, 
+                            fontWeight: FontWeight.w600
+                          ),
+                        ),
+                      ),
                     ),
-                    child: const Text("Tidak", style: TextStyle(color: Colors.black)),
                   ),
                 ),
                 // Tombol Iya
-                SizedBox(
-                  width: 100,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      await supabase.auth.signOut();
-                      if (mounted) {
-                        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF02182F),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: SizedBox(
+                      height: 45,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await supabase.auth.signOut();
+                          if (mounted) {
+                            Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF02182F),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(
+                          "Iya", 
+                          style: GoogleFonts.poppins(
+                            color: Colors.white, 
+                            fontWeight: FontWeight.w600
+                          ),
+                        ),
+                      ),
                     ),
-                    child: const Text("Iya", style: TextStyle(color: Colors.white)),
                   ),
                 ),
               ],

@@ -17,8 +17,8 @@ class _MainNavAdminState extends State<MainNavAdmin> {
 
   // 2. Masukkan DashboardAdminScreen ke index 0
   final List<Widget> _pages = [
-    const DashboardAdminScreen(),                            // Dashboard Asli Muncul Lagi
-    const ListAlatScreen(),                                  // Menu Alat
+    const DashboardAdminScreen(),                            
+    const ListAlatScreen(),                                 
     const ListPenggunaScreen(),
     const DataPeminjamScreen()   
   ];
