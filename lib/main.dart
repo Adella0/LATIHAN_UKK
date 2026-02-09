@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/app_routes.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -10,6 +11,7 @@ void main() async {
     anonKey: 'sb_publishable__CzlJitG8VMKtzjUNKirVw_T3Pb0bJF', // Masukkan key asli kamu
   );
 
+  await initializeDateFormatting('id', null);
   runApp(const MyApp());
 }
 

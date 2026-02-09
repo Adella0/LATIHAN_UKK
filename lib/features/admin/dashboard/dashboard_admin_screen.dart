@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fl_chart/fl_chart.dart'; 
 import 'daftar_riwayat_aktivitas.dart';
 import '../ui/profil.dart';
+import 'detail_denda.dart';
 
 class DashboardAdminScreen extends StatefulWidget {
   const DashboardAdminScreen({super.key});
@@ -164,18 +165,28 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   }
 
   Widget _buildStatSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _buildStatCard("Total alat", totalAlat),
-          _buildStatCard("Total pengguna", penggunaAktif), // Nama diubah
-          _buildStatCard("Total denda", totalDenda), // Nama diubah
-        ],
-      ),
-    );
-  }
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 25),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _buildStatCard("Total alat", totalAlat),
+        _buildStatCard("Total pengguna", penggunaAktif),
+        
+        // Bungkus Card Denda dengan GestureDetector
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context, 
+              MaterialPageRoute(builder: (context) => const DetailDendaPage())
+            );
+          },
+          child: _buildStatCard("Total denda", totalDenda),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildStatCard(String title, String value) {
     return Container(
