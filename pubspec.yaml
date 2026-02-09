@@ -31,6 +31,7 @@ dependencies:
   image_picker: ^1.1.2
   cupertino_icons: ^1.0.6
   intl: ^0.19.0 #
+  fl_chart: ^0.70.0  # Library chart paling populer di Flutter
 
 dev_dependencies:
   flutter_test:

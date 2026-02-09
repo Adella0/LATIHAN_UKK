@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fl_chart/fl_chart.dart'; 
 import 'daftar_riwayat_aktivitas.dart';
 import '../ui/profil.dart';
 
@@ -16,100 +17,89 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   String userRole = "";
   bool isLoading = true;
 
+  // Variabel Statistik
   String totalAlat = "0";
-  String pinjamanAktif = "0";
-  String barangRusak = "0";
+  String penggunaAktif = "0";
+  String totalDenda = "0";
 
-  final List<Map<String, dynamic>> chartData = [
-    {"label": "Proyektor", "value": 200, "color": const Color(0xFF02182F)},
-    {"label": "Tv", "value": 185, "color": const Color(0xFFC9D0D6)},
-    {"label": "Bola basket", "value": 165, "color": const Color(0xFF02182F)},
-    {"label": "Remot", "value": 115, "color": const Color(0xFFC9D0D6)},
-    {"label": "Meja", "value": 85, "color": const Color(0xFF02182F)},
-  ];
+  List<Map<String, dynamic>> pieChartData = [];
 
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    _loadDashboardData(); 
   }
 
  Future<void> _loadDashboardData() async {
   try {
     final supabase = Supabase.instance.client;
+    
+    // 1. Profil Admin yang sedang login
     final user = supabase.auth.currentUser;
-
     if (user != null) {
-      // 1. Ambil data mentah tanpa filter kolom dulu biar tidak error nama kolom
-      final res = await supabase
-          .from('users')
-          .select() 
-          .eq('id_user', user.id)
-          .maybeSingle();
-
-      if (res != null && mounted) {
-        setState(() {
-          // Ambil data 'nama' atau 'nama_user'. Kita cek mana yang ada isinya.
-          userName = res['nama'] ?? res['nama_user'] ?? "Admin";
-          
-          // Ambil role dan buat huruf depannya kapital (admin -> Admin)
-          String roleRaw = res['role'] ?? "Admin";
-          userRole = roleRaw[0].toUpperCase() + roleRaw.substring(1);
-          
-          isLoading = false;
-        });
+      final res = await supabase.from('users').select().eq('id_user', user.id).maybeSingle();
+      if (res != null) {
+        userName = res['nama'] ?? "Admin";
+        userRole = res['role']?.toString().toUpperCase() ?? "ADMIN";
       }
     }
+
+    // 2. STATISTIK (DIPERBAIKI)
+    
+    // a. Total Alat: Menghitung jumlah baris di tabel alat
+    final resAlat = await supabase.from('alat').select('id_alat');
+    int hitungAlat = (resAlat as List).length;
+
+    // b. Pengguna Aktif: Menghitung user yang session-nya sedang aktif
+    final resAktif = await supabase.from('users').select('id_user'); 
+    // Catatan: Jika kamu punya kolom 'status' atau 'is_online', tambahkan .eq('status', true)
+    int hitungAktif = (resAktif as List).length; 
+
+    // c. Total Denda: Menghitung jumlah baris di tabel denda
+    int hitungDenda = 0;
+    try {
+      final resDenda = await supabase.from('denda').select('id_denda');
+      hitungDenda = (resDenda as List).length;
+    } catch (e) {
+      hitungDenda = 0;
+    }
+
+    // 3. GRAFIK (TETAP SAMA)
+    final resChart = await supabase.from('detail_peminjaman').select('jumlah, id_alat');
+    final alatRes = await supabase.from('alat').select('id_alat, nama_alat');
+    Map<dynamic, String> mapAlat = {
+      for (var a in alatRes) a['id_alat']: a['nama_alat'].toString()
+    };
+
+    Map<String, double> hasilHitung = {};
+    for (var item in resChart) {
+      String namaAlat = mapAlat[item['id_alat']] ?? "Alat ${item['id_alat']}";
+      double jml = double.tryParse(item['jumlah'].toString()) ?? 0;
+      if (jml > 0) {
+        hasilHitung[namaAlat] = (hasilHitung[namaAlat] ?? 0) + jml;
+      }
+    }
+
+    List<Color> warna = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple];
+    int i = 0;
+    List<Map<String, dynamic>> dataBaru = hasilHitung.entries.map((e) {
+      return {"label": e.key, "value": e.value, "color": warna[i++ % warna.length]};
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        totalAlat = hitungAlat.toString();
+        penggunaAktif = hitungAktif.toString();
+        totalDenda = hitungDenda.toString();
+        pieChartData = dataBaru;
+        isLoading = false;
+      });
+    }
   } catch (e) {
-    debugPrint("Error Dashboard: $e");
+    debugPrint("DEBUG ERROR: $e");
     if (mounted) setState(() => isLoading = false);
   }
 }
-
-  // --- FUNGSI POP-UP DETAIL LOG ---
-  void _showDetailPopup(String nama, String tanggal, String role) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Detail Riwayat", 
-          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
-          textAlign: TextAlign.center,
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildDetailRow("Nama", nama),
-            _buildDetailRow("Tanggal", tanggal),
-            _buildDetailRow("Role", role),
-            _buildDetailRow("Status", "Selesai"),
-          ],
-        ),
-        actions: [
-          Center(
-            child: TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("Tutup", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: const Color(0xFF02182F))),
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 70, child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold))),
-          const Text(": "),
-          Expanded(child: Text(value)),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,9 +114,10 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
                   const SizedBox(height: 25),
                   _buildHeader(),
                   const SizedBox(height: 30),
-                  _buildStatSection(),
-                  const SizedBox(height: 35),
+                  _buildStatSection(), // Bagian yang diupdate
+                  const SizedBox(height: 30),
                   _buildGraphTitle(),
+                  const SizedBox(height: 10),
                   _buildChartSection(),
                   const SizedBox(height: 25),
                   _buildActivityHeader(),
@@ -136,9 +127,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
                       children: [
                         _buildActivityItem("Ailen", "12/01/2026", "Petugas"),
                         _buildActivityItem("Monica", "12/01/2026", "Peminjam"),
-                        _buildActivityItem("Ailen", "12/01/2026", "Petugas"),
-                        _buildActivityItem("Monica", "12/01/2026", "Peminjam"),
-                        const SizedBox(height: 100),
+                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
@@ -165,8 +154,8 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Hi, $userName!", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-              Text(userRole, style: GoogleFonts.poppins(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.w500)),
+              Text("Hi, $userName!", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(userRole, style: GoogleFonts.poppins(fontSize: 14, color: Colors.black54)),
             ],
           ),
         ],
@@ -181,8 +170,8 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _buildStatCard("Total alat", totalAlat),
-          _buildStatCard("Pinjaman aktif", pinjamanAktif),
-          _buildStatCard("Pengguna", barangRusak),
+          _buildStatCard("Total pengguna", penggunaAktif), // Nama diubah
+          _buildStatCard("Total denda", totalDenda), // Nama diubah
         ],
       ),
     );
@@ -199,7 +188,6 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
       child: Column(
         children: [
           Text(title, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 4),
           Text(value, style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold)),
         ],
       ),
@@ -220,55 +208,48 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   }
 
   Widget _buildChartSection() {
+    if (pieChartData.isEmpty) {
+      return const SizedBox(
+        height: 150,
+        child: Center(child: Text("Data Kosong")),
+      );
+    }
+
     return Container(
       height: 200,
-      margin: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-      padding: const EdgeInsets.fromLTRB(10, 20, 15, 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          RotatedBox(
-            quarterTurns: 3,
-            child: Text("( Jumlah alat yang dipinjam )", style: GoogleFonts.poppins(fontSize: 7, color: Colors.black54)),
-          ),
-          const SizedBox(width: 5),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: ["200", "150", "100", "50", "0"].map((e) => Text(e, style: const TextStyle(fontSize: 9, color: Colors.black54))).toList(),
-          ),
-          const SizedBox(width: 10),
           Expanded(
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              children: [
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(5, (i) => const Divider(height: 1, color: Colors.black12, thickness: 0.5)),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: chartData.map((data) {
-                    double barHeight = (data['value'] / 200) * 140;
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Container(
-                          width: 22,
-                          height: barHeight,
-                          decoration: BoxDecoration(color: data['color'], borderRadius: BorderRadius.circular(2)),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(data['label'], style: GoogleFonts.poppins(fontSize: 7, fontWeight: FontWeight.w500)),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ],
+            child: PieChart(
+              PieChartData(
+                centerSpaceRadius: 40,
+                sectionsSpace: 2,
+                sections: pieChartData.map((data) {
+                  return PieChartSectionData(
+                    color: data['color'],
+                    value: data['value'],
+                    title: data['value'].toInt().toString(),
+                    radius: 50,
+                    titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  );
+                }).toList(),
+              ),
             ),
+          ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: pieChartData.map((data) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Container(width: 10, height: 10, color: data['color']),
+                  const SizedBox(width: 8),
+                  Text(data['label'], style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            )).toList(),
           ),
         ],
       ),
@@ -281,29 +262,10 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(children: [
-            const Icon(Icons.history, size: 20), 
-            const SizedBox(width: 8), 
-            Text("Log aktivitas", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold))
-          ]),
-          GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DaftarRiwayatAktivitas())),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(
-                color: const Color(0xFFC9D0D6),
-                borderRadius: BorderRadius.circular(10),
-                // MENAMBAHKAN BAYANGAN (SHADOW) AGAR MENONJOL
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  )
-                ]
-              ),
-              child: const Text("Detail >", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-            ),
+          Text("Log aktivitas", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+          TextButton(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DaftarRiwayatAktivitas())),
+            child: const Text("Detail >", style: TextStyle(fontSize: 10, color: Colors.blueGrey)),
           )
         ],
       ),
@@ -311,50 +273,33 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   }
 
   Widget _buildActivityItem(String nama, String tanggal, String role) {
-    final Color badgeColor = role == 'Petugas' ? const Color(0xFF02182F) : const Color(0xFFB0B8C1);
-    return GestureDetector(
-      onTap: () => _showDetailPopup(nama, tanggal, role), // KLIK MUNCUL POPUP
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: Colors.black.withOpacity(0.1)),
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                children: [
-                  _buildInfoRow("Nama", nama, role, badgeColor),
-                  const SizedBox(height: 4),
-                  _buildInfoRow("Tanggal", tanggal, null, null),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, size: 20, color: Colors.black54),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black12),
+        borderRadius: BorderRadius.circular(12),
       ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value, String? role, Color? badgeColor) {
-    return Row(
-      children: [
-        SizedBox(width: 60, child: Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12, color: const Color(0xFF02182F)))),
-        const Text(" : ", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-        Text(value, style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF02182F))),
-        if (role != null) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-            decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(6)),
-            child: Text(role, style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Nama: $nama", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold)),
+              Text("Tanggal: $tanggal", style: GoogleFonts.poppins(fontSize: 11)),
+            ],
           ),
-        ]
-      ],
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: role == 'Petugas' ? const Color(0xFF02182F) : Colors.grey,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Text(role, style: const TextStyle(color: Colors.white, fontSize: 8)),
+          ),
+        ],
+      ),
     );
   }
 }
