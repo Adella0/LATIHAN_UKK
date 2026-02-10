@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 // Import file detail pinjaman kamu di sini
-import 'detail_pinjaman.dart'; 
+import '../pinjaman/detail_pinjaman_peminjam.dart';
 
 class PinjamanSayaScreen extends StatefulWidget {
   const PinjamanSayaScreen({super.key});
@@ -139,15 +139,13 @@ class _PinjamanSayaScreenState extends State<PinjamanSayaScreen> {
     String formattedDate = DateFormat('dd/MM/yyyy').format(DateTime.parse(item['pengambilan']));
 
     // UPDATE: Menambahkan GestureDetector agar card bisa diklik
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DetailPinjamanScreen(idPinjam: item['id_pinjam']),
-          ),
-        );
-      },
+            return GestureDetector(
+              onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => DetailPinjamanScreen(idPinjam: item['id_pinjam']))
+          );
+        },
       child: Container(
         margin: const EdgeInsets.only(bottom: 15),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
