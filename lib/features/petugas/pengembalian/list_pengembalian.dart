@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import '../pengembalian/detail_pengajuan_pengembalian.dart';
 
 class ListPengembalian extends StatefulWidget {
   const ListPengembalian({super.key});
@@ -55,33 +56,40 @@ class _ListPengembalianState extends State<ListPengembalian> with TickerProvider
   }
 
   Future<void> _fetchData() async {
-    if (!mounted) return;
-    // Hilangkan isLoading true di sini agar tidak muncul loading terus menerus saat realtime update
-    try {
-      final proses = await supabase
-          .from('peminjaman')
-          .select('*, peminjam:users!peminjam_id(nama)')
-          .eq('status_transaksi', 'proses_kembali')
-          .order('pengembalian', ascending: false);
+  if (!mounted) return;
+  try {
+    // 1. Ambil ID petugas yang sedang login
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
 
-      final riwayat = await supabase
-          .from('peminjaman')
-          .select('*, peminjam:users!peminjam_id(nama)')
-          .eq('status_transaksi', 'selesai')
-          .order('pengembalian', ascending: false);
+    // 2. Ambil data 'Mengajukan' (Status: dikembalikan)
+    final proses = await supabase
+        .from('peminjaman')
+        .select('*, peminjam:users!peminjam_id(nama)')
+        .eq('status_transaksi', 'dikembalikan') // Sesuaikan dengan status baru
+        .eq('petugas_id', user.id)               // Hanya yang di-acc oleh petugas ini
+        .order('Pengembalian', ascending: false); // Pakai P kapital sesuai ERD kamu
 
-      if (mounted) {
-        setState(() {
-          _listProses = proses;
-          _listRiwayat = riwayat;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error Fetch: $e");
-      if (mounted) setState(() => _isLoading = false);
+    // 3. Ambil data 'Riwayat' (Status: selesai)
+    final riwayat = await supabase
+        .from('peminjaman')
+        .select('*, peminjam:users!peminjam_id(nama)')
+        .eq('status_transaksi', 'selesai')      // Status final
+        .eq('petugas_id', user.id)               // Filter petugas yang sama
+        .order('Pengembalian', ascending: false);
+
+    if (mounted) {
+      setState(() {
+        _listProses = proses;
+        _listRiwayat = riwayat;
+        _isLoading = false;
+      });
     }
+  } catch (e) {
+    debugPrint("Error Fetch Pengembalian: $e");
+    if (mounted) setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -171,9 +179,13 @@ class _ListPengembalianState extends State<ListPengembalian> with TickerProvider
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(25),
-        onTap: () {
-           // Navigasi ke detail pengembalian (akan kita buat nanti)
-        },
+        onTap: () async {
+  final refresh = await Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => DetailKonfirmasiKembali(data: item))
+  );
+  if (refresh == true) _fetchData(); // Refresh list otomatis setelah konfirmasi
+},
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -213,6 +225,7 @@ class _ListPengembalianState extends State<ListPengembalian> with TickerProvider
                 children: [
                   _infoCol("Pengambilan", _fmt(item['pengambilan'])),
                   _infoCol("Tenggat", _fmt(item['tenggat'])),
+                  _infoCol("Tgl Kembali", _fmt(item['Pengembalian'])),
                   Column(
                     children: [
                       Text("Alat", style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold)),
