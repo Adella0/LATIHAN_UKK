@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart'; // Pastikan sudah tambah intl di pubspec.yaml
+import 'package:intl/intl.dart'; 
 import 'daftar_riwayat_aktivitas.dart';
 import '../ui/profil.dart';
 import 'detail_denda.dart';
@@ -25,7 +25,8 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   String totalDenda = "0";
 
   List<Map<String, dynamic>> pieChartData = [];
-  List<Map<String, dynamic>> _logAktivitas = []; // Penampung Log
+  List<Map<String, dynamic>> _logAktivitas = []; 
+  List<Map<String, dynamic>> _alatDipinjam = []; // Penampung Alat yang sedang dipinjam
 
   @override
   void initState() {
@@ -34,82 +35,108 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   }
 
   Future<void> _loadDashboardData() async {
+  try {
+    final supabase = Supabase.instance.client;
+
+    // 1. PROFIL ADMIN
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      final res = await supabase.from('users').select().eq('id_user', user.id).maybeSingle();
+      if (res != null) {
+        userName = res['nama'] ?? "Admin";
+        userRole = res['role']?.toString().toUpperCase() ?? "ADMIN";
+      }
+    }
+
+    // 2. STATISTIK (LOGIKA ASLI ANDA)
+    final resAlat = await supabase.from('alat').select('id_alat');
+    int hitungAlat = (resAlat as List).length;
+
+    final resAktif = await supabase.from('users').select('id_user');
+    int hitungAktif = (resAktif as List).length;
+
+    int hitungDenda = 0;
     try {
-      final supabase = Supabase.instance.client;
+      final resDenda = await supabase.from('denda').select('id_denda');
+      hitungDenda = (resDenda as List).length;
+    } catch (e) { hitungDenda = 0; }
 
-      // 1. Profil Admin yang sedang login
-      final user = supabase.auth.currentUser;
-      if (user != null) {
-        final res = await supabase.from('users').select().eq('id_user', user.id).maybeSingle();
-        if (res != null) {
-          userName = res['nama'] ?? "Admin";
-          userRole = res['role']?.toString().toUpperCase() ?? "ADMIN";
-        }
-      }
+    // 3. GRAFIK (LOGIKA ASLI ANDA)
+    final resChart = await supabase.from('detail_peminjaman').select('jumlah, id_alat');
+    final alatRes = await supabase.from('alat').select('id_alat, nama_alat');
+    Map<dynamic, String> mapAlat = { for (var a in alatRes) a['id_alat']: a['nama_alat'].toString() };
 
-      // 2. STATISTIK (KODE ASLI ANDA)
-      final resAlat = await supabase.from('alat').select('id_alat');
-      int hitungAlat = (resAlat as List).length;
+    Map<String, double> hasilHitung = {};
+    for (var item in resChart) {
+      String namaAlat = mapAlat[item['id_alat']] ?? "Alat ${item['id_alat']}";
+      double jml = double.tryParse(item['jumlah'].toString()) ?? 0;
+      if (jml > 0) { hasilHitung[namaAlat] = (hasilHitung[namaAlat] ?? 0) + jml; }
+    }
 
-      final resAktif = await supabase.from('users').select('id_user');
-      int hitungAktif = (resAktif as List).length;
+    List<Color> warna = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple];
+    int i = 0;
+    List<Map<String, dynamic>> dataBaru = hasilHitung.entries.map((e) {
+      return {"label": e.key, "value": e.value, "color": warna[i++ % warna.length]};
+    }).toList();
 
-      int hitungDenda = 0;
-      try {
-        final resDenda = await supabase.from('denda').select('id_denda');
-        hitungDenda = (resDenda as List).length;
-      } catch (e) {
-        hitungDenda = 0;
-      }
+    // 4. LOG AKTIVITAS (LOGIKA ASLI ANDA)
+    final resLog = await supabase.from('log_aktivitas').select('aksi, created_at, users:user_id (nama, role)').order('created_at', ascending: false).limit(5);
 
-      // 3. GRAFIK (KODE ASLI ANDA)
-      final resChart = await supabase.from('detail_peminjaman').select('jumlah, id_alat');
-      final alatRes = await supabase.from('alat').select('id_alat, nama_alat');
-      Map<dynamic, String> mapAlat = {
-        for (var a in alatRes) a['id_alat']: a['nama_alat'].toString()
-      };
-
-      Map<String, double> hasilHitung = {};
-      for (var item in resChart) {
-        String namaAlat = mapAlat[item['id_alat']] ?? "Alat ${item['id_alat']}";
-        double jml = double.tryParse(item['jumlah'].toString()) ?? 0;
-        if (jml > 0) {
-          hasilHitung[namaAlat] = (hasilHitung[namaAlat] ?? 0) + jml;
-        }
-      }
-
-      List<Color> warna = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple];
-      int i = 0;
-      List<Map<String, dynamic>> dataBaru = hasilHitung.entries.map((e) {
-        return {"label": e.key, "value": e.value, "color": warna[i++ % warna.length]};
-      }).toList();
-
-      // --- LOGIKA LOG AKTIVITAS (FOKUS PERBAIKAN DI SINI) ---
-      final resLog = await supabase
-          .from('log_aktivitas')
+    // 5. ALAT SEDANG DIPINJAM (LOGIKA BARU - DIBUNGKUS TRY AGAR AMAN)
+   List<Map<String, dynamic>> dataAlatPinjam = [];
+   try {
+      final resAlatDipinjam = await supabase
+          .from('peminjaman')
           .select('''
-            aksi,
-            created_at,
-            users:user_id (nama, role)
+            id_pinjam,
+            status_transaksi,
+            detail_peminjaman (
+              jumlah,
+              alat (
+                nama_alat,
+                foto_url,
+                kategori (nama_kategori)
+              )
+            )
           ''')
-          .order('created_at', ascending: false)
-          .limit(5);
+          .or('status_transaksi.eq.aktif,status_transaksi.eq.terlambat');
+
+      debugPrint("DATA PINJAMAN DITEMUKAN: ${resAlatDipinjam.length}");
 
       if (mounted) {
         setState(() {
+          // Logika statistik dan grafik tetap sama
           totalAlat = hitungAlat.toString();
           penggunaAktif = hitungAktif.toString();
           totalDenda = hitungDenda.toString();
           pieChartData = dataBaru;
           _logAktivitas = List<Map<String, dynamic>>.from(resLog);
+          
+          // Logika Alat Dipinjam
+          _alatDipinjam = List<Map<String, dynamic>>.from(resAlatDipinjam);
           isLoading = false;
         });
       }
     } catch (e) {
-      debugPrint("DEBUG ERROR: $e");
-      if (mounted) setState(() => isLoading = false);
+      debugPrint("ERROR QUERY ALAT: $e");
     }
+
+    if (mounted) {
+      setState(() {
+        totalAlat = hitungAlat.toString();
+        penggunaAktif = hitungAktif.toString();
+        totalDenda = hitungDenda.toString();
+        pieChartData = dataBaru;
+        _logAktivitas = List<Map<String, dynamic>>.from(resLog);
+        _alatDipinjam = dataAlatPinjam; // Masukkan ke list
+        isLoading = false;
+      });
+    }
+  } catch (e) {
+    debugPrint("DEBUG ERROR UTAMA: $e");
+    if (mounted) setState(() => isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -118,49 +145,79 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFF02182F)))
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 25),
-                  _buildHeader(),
-                  const SizedBox(height: 30),
-                  _buildStatSection(),
-                  const SizedBox(height: 30),
-                  _buildGraphTitle(),
-                  const SizedBox(height: 10),
-                  _buildChartSection(),
-                  const SizedBox(height: 25),
-                  _buildActivityHeader(),
-                  
-                  // LIST LOG DINAMIS (FOKUS PERBAIKAN DI SINI)
-                  Expanded(
-                    child: _logAktivitas.isEmpty
-                        ? Center(child: Text("Belum ada aktivitas", style: GoogleFonts.poppins(fontSize: 12)))
+            : SingleChildScrollView( // Menggunakan SingleChildScrollView agar bisa scroll ke bawah
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 25),
+                    _buildHeader(),
+                    const SizedBox(height: 30),
+                    _buildStatSection(),
+                    const SizedBox(height: 30),
+                    _buildGraphTitle(),
+                    const SizedBox(height: 10),
+                    _buildChartSection(),
+                    const SizedBox(height: 25),
+                    
+                    // BAGIAN LOG AKTIVITAS
+                    _buildActivityHeader(),
+                    _logAktivitas.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Center(child: Text("Belum ada aktivitas", style: GoogleFonts.poppins(fontSize: 12))),
+                          )
                         : ListView.builder(
+                            shrinkWrap: true, // Penting di dalam scrollview
+                            physics: const NeverScrollableScrollPhysics(),
                             padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
                             itemCount: _logAktivitas.length,
                             itemBuilder: (context, index) {
                               final log = _logAktivitas[index];
-                              
                               final String nama = log['users']?['nama'] ?? "User Tidak Dikenal";
                               final String roleRaw = log['users']?['role'] ?? "User";
                               final String aksi = log['aksi'] ?? "Melakukan aktivitas";
-                              
-                              // Format Tanggal lebih cantik
                               DateTime dt = DateTime.parse(log['created_at']).toLocal();
                               String tanggal = DateFormat('dd MMM yyyy, HH:mm').format(dt);
-
                               return _buildActivityItem(nama, tanggal, roleRaw, aksi);
                             },
                           ),
-                  ),
-                ],
+
+                    const SizedBox(height: 25),
+
+                    // BAGIAN ALAT SEDANG DIPINJAM (Sesuai desain gambar)
+                    _buildAlatDipinjamHeader(),
+                    _alatDipinjam.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Center(child: Text("Tidak ada alat yang dipinjam", style: GoogleFonts.poppins(fontSize: 12))),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+                            itemCount: _alatDipinjam.length,
+                           // Cari bagian ListView untuk Alat yang sedang dipinjam, ganti bagian itemBuilder-nya:
+                            itemBuilder: (context, index) {
+                              final item = _alatDipinjam[index];
+                              final alat = item['alat']; // Langsung ambil dari objek alat
+                              
+                              return _buildAlatDipinjamCard(
+                                alat['nama_alat'] ?? "Tanpa Nama",
+                                alat['kategori']?['nama_kategori'] ?? "Tanpa Kategori",
+                                item['jumlah'].toString(),
+                                alat['foto_url'],
+                              );
+                            },
+                          ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
               ),
       ),
     );
   }
 
-  // --- WIDGET KOMPONEN (TETAP SAMA) ---
+  // --- WIDGET HELPER ---
 
   Widget _buildHeader() {
     return Padding(
@@ -280,19 +337,33 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   Widget _buildActivityHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 30),
+      child: Text("Log aktivitas", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildAlatDipinjamHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 30),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text("Log aktivitas", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text("Alat yang sedang dipinjam", style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+          GestureDetector(
+            onTap: () {}, // Tambahkan navigasi ke semua daftar pinjaman
+            child: Row(
+              children: [
+                Text("Detail", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // DESAIN CARD BARU (LEBIH BERSIH DAN MODERN)
   Widget _buildActivityItem(String nama, String tanggal, String role, String aksi) {
     bool isPetugas = role.toLowerCase() == 'petugas';
-
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
@@ -300,42 +371,56 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))
-        ],
       ),
       child: Row(
         children: [
           CircleAvatar(
             backgroundColor: isPetugas ? const Color(0xFF02182F) : Colors.grey[200],
-            child: Text(nama[0].toUpperCase(), 
-              style: TextStyle(color: isPetugas ? Colors.white : Colors.black87, fontSize: 14)),
+            child: Text(nama[0].toUpperCase(), style: TextStyle(color: isPetugas ? Colors.white : Colors.black)),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(nama, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: isPetugas ? const Color(0xFFE3F2FD) : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(role, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isPetugas ? Colors.blue[900] : Colors.grey[600])),
-                    ),
-                  ],
-                ),
+                Text(nama, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13)),
                 Text(aksi, style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54)),
-                const SizedBox(height: 4),
                 Text(tanggal, style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey)),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlatDipinjamCard(String nama, String kategori, String jumlah, String? imageUrl) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 80, height: 60,
+            decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+            child: imageUrl != null ? Image.network(imageUrl, fit: BoxFit.contain) : const Icon(Icons.image),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(nama, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(kategori, style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF02182F))),
+              ],
+            ),
+          ),
+          Text("($jumlah) unit", style: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 13)),
         ],
       ),
     );
