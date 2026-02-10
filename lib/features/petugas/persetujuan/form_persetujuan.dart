@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'penolakan.dart';
 
 class FormPersetujuan extends StatefulWidget {
   const FormPersetujuan({super.key});
@@ -79,6 +80,42 @@ class _FormPersetujuanState extends State<FormPersetujuan> with TickerProviderSt
       }
     }
   }
+
+  // Fungsi untuk memproses penolakan ke database
+Future<void> _prosesTolak(int idPinjam, String statusBaru, String namaPeminjam, String alasan) async {
+  try {
+    final petugas = supabase.auth.currentUser;
+    
+    await supabase.from('peminjaman').update({
+      'status_transaksi': statusBaru,
+      'alasan_penolakan': alasan, // Kolom baru sesuai permintaanmu
+      'petugas_id': petugas?.id
+    }).eq('id_pinjam', idPinjam);
+
+    await supabase.from('log_aktivitas').insert({
+      'user_id': petugas?.id,
+      'aksi': 'Penolakan Pinjaman',
+      'keterangan': 'Menolak pengajuan $namaPeminjam. Alasan: $alasan',
+    });
+
+    _fetchData(); // Refresh list
+  } catch (e) {
+    debugPrint("Error: $e");
+  }
+}
+
+// Fungsi untuk memanggil dialog yang sudah kita buat di penolakan.dart
+void _openTolakDialog(int idPinjam, String namaPeminjam) {
+  showDialog(
+    context: context,
+    builder: (context) => PenolakanDialog(
+      namaPeminjam: namaPeminjam,
+      onConfirm: (alasan) {
+        _prosesTolak(idPinjam, 'ditolak', namaPeminjam, alasan);
+      },
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -232,13 +269,17 @@ class _FormPersetujuanState extends State<FormPersetujuan> with TickerProviderSt
                       ),
                     ),
                     
-                    Row(
-                      children: [
-                        _buildActionBtn("Tolak", Colors.red, () => _updateStatus(item['id_pinjam'], 'ditolak', namaUser)),
-                        const SizedBox(width: 8),
-                        _buildActionBtn("Setuju", Colors.green, () => _updateStatus(item['id_pinjam'], 'aktif', namaUser)),
-                      ],
-                    )
+                   Row(
+                  children: [
+                    // Tombol Tolak (Membuka Dialog Alasan)
+                    _buildActionBtn("Tolak", Colors.red, () => _openTolakDialog(item['id_pinjam'], namaUser)),
+                    
+                    const SizedBox(width: 8),
+                    
+                    // Tombol Setuju (Langsung Update Status ke Aktif)
+                    _buildActionBtn("Setuju", Colors.green, () => _updateStatus(item['id_pinjam'], 'aktif', namaUser)),
+                  ],
+                )
                   ],
                 ),
                 const SizedBox(height: 20),
