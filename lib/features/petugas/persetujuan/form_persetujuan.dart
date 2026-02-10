@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
+import 'penolakan.dart';
+import 'riwayat_persetujuan.dart';
+import '../persetujuan/detail_peminjaman.dart';
 
 class FormPersetujuan extends StatefulWidget {
   const FormPersetujuan({super.key});
@@ -23,34 +27,70 @@ class _FormPersetujuanState extends State<FormPersetujuan> with TickerProviderSt
   }
 
   Future<void> _fetchData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      // Mengambil data peminjaman yang statusnya 'pending'
+      // Perbaikan Query: Memastikan relasi ke users benar
       final data = await supabase
           .from('peminjaman')
-          .select('*, users(nama, role)')
-          .eq('status', 'pending');
+          .select('*, peminjam:users!peminjam_id(nama)') 
+          .eq('status_transaksi', 'pending')
+          .order('pengambilan', ascending: true);
       
-      setState(() {
-        _pengajuanPending = data;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _pengajuanPending = data;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      debugPrint("Error: $e");
-      setState(() => _isLoading = false);
+      debugPrint("Error Fetch Persetujuan: $e");
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _updateStatus(int id, String status) async {
+  Future<void> _updateStatus(int idPinjam, String statusBaru, String namaPeminjam) async {
     try {
-      await supabase.from('peminjaman').update({'status': status}).eq('id_peminjaman', id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Pengajuan $status")),
-      );
-      _fetchData(); // Refresh data
+      final petugas = supabase.auth.currentUser;
+      
+      await supabase.from('peminjaman').update({
+        'status_transaksi': statusBaru,
+        'petugas_id': petugas?.id
+      }).eq('id_pinjam', idPinjam);
+
+      await supabase.from('log_aktivitas').insert({
+        'user_id': petugas?.id,
+        'aksi': statusBaru == 'aktif' ? 'Persetujuan Alat' : 'Penolakan Pinjaman',
+        'keterangan': 'Petugas telah $statusBaru pengajuan dari $namaPeminjam',
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Berhasil: Pengajuan $statusBaru"), backgroundColor: Colors.green),
+        );
+        _fetchData(); 
+      }
     } catch (e) {
       debugPrint("Error update: $e");
     }
+  }
+
+  void _openTolakDialog(int idPinjam, String namaPeminjam) {
+    showDialog(
+      context: context,
+      builder: (context) => PenolakanDialog(
+        namaPeminjam: namaPeminjam,
+        onConfirm: (alasan) async {
+          await supabase.from('peminjaman').update({
+            'status_transaksi': 'ditolak',
+            'alasan_penolakan': alasan,
+            'petugas_id': supabase.auth.currentUser?.id
+          }).eq('id_pinjam', idPinjam);
+          
+          _updateStatus(idPinjam, 'ditolak', namaPeminjam);
+        },
+      ),
+    );
   }
 
   @override
@@ -61,24 +101,14 @@ class _FormPersetujuanState extends State<FormPersetujuan> with TickerProviderSt
         child: Column(
           children: [
             const SizedBox(height: 20),
-            Text(
-              "Persetujuan",
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF02182F),
-              ),
-            ),
+            Text("Persetujuan", style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF02182F))),
             const SizedBox(height: 20),
             
-            // --- SEARCH BAR (Sesuai Gambar) ---
+            // Search Bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 25),
               child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD9DEE3),
-                  borderRadius: BorderRadius.circular(30),
-                ),
+                decoration: BoxDecoration(color: const Color(0xFFD9DEE3), borderRadius: BorderRadius.circular(30)),
                 child: const TextField(
                   decoration: InputDecoration(
                     hintText: "Cari...",
@@ -91,32 +121,20 @@ class _FormPersetujuanState extends State<FormPersetujuan> with TickerProviderSt
             ),
             
             const SizedBox(height: 10),
-
-            // --- TAB BAR (Sesuai Gambar) ---
             TabBar(
               controller: _tabController,
               labelColor: const Color(0xFF02182F),
-              unselectedLabelColor: Colors.grey,
               indicatorColor: const Color(0xFF02182F),
-              indicatorSize: TabBarIndicatorSize.label,
-              labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13),
-              tabs: const [
-                Tab(text: "Proses pengajuan"),
-                Tab(text: "Riwayat pengajuan"),
-              ],
+              tabs: const [Tab(text: "Proses pengajuan"), Tab(text: "Riwayat pengajuan")],
             ),
 
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  // TAB 1: PROSES PENGAJUAN
-                  _isLoading 
-                    ? const Center(child: CircularProgressIndicator())
-                    : _buildListProses(),
+                  _isLoading ? const Center(child: CircularProgressIndicator()) : _buildListProses(),
+                  const RiwayatPersetujuan(),
                   
-                  // TAB 2: RIWAYAT (Bisa diisi nanti)
-                  const Center(child: Text("Halaman Riwayat")),
                 ],
               ),
             ),
@@ -128,119 +146,88 @@ class _FormPersetujuanState extends State<FormPersetujuan> with TickerProviderSt
 
   Widget _buildListProses() {
     if (_pengajuanPending.isEmpty) {
-      return const Center(child: Text("Tidak ada pengajuan pending"));
+      return Center(child: Text("Tidak ada pengajuan pending", style: GoogleFonts.poppins(color: Colors.grey)));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(20),
       itemCount: _pengajuanPending.length,
-      itemBuilder: (context, index) {
-        final item = _pengajuanPending[index];
-        return _buildCardPersetujuan(item);
-      },
+      itemBuilder: (context, index) => _buildCardPersetujuan(_pengajuanPending[index]),
     );
   }
 
   Widget _buildCardPersetujuan(dynamic item) {
+    final String namaUser = item['peminjam']?['nama'] ?? "User Tidak Diketahui";
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Stack(
-        children: [
-          // Garis handle di atas (Sesuai Desain)
-          Align(
-            alignment: Alignment.topCenter,
-            child: Container(
-              margin: const EdgeInsets.only(top: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-          
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 25, 20, 20),
+      child: Material( // Tambahkan Material agar efek klik (ripple) terlihat
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(25),
+          onTap: () {
+            // NAVIGASI KE DETAIL
+            Navigator.push(
+              context, 
+              MaterialPageRoute(
+                builder: (context) => DetailPinjamanScreen(idPinjam: item['id_pinjam'])
+              )
+            ).then((_) => _fetchData()); // Refresh list saat balik dari detail
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(20),
             child: Column(
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const CircleAvatar(
-                      radius: 25,
-                      backgroundImage: AssetImage('assets/profile_placeholder.png'), // Ganti sesuai assetmu
+                      backgroundColor: Color(0xFFD9DEE3),
+                      child: Icon(Icons.person, color: Colors.white),
                     ),
                     const SizedBox(width: 15),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            item['users']['nama'] ?? "User",
-                            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              "Peminjam",
-                              style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w500),
-                            ),
-                          ),
+                          Text(namaUser, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15)),
+                          Text("Peminjam", style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
                         ],
                       ),
                     ),
-                    
-                    // Tombol Aksi (Tolak & Setuju)
+                    // Tombol Aksi (Gunakan Row agar tidak terpicu onTap kartu)
                     Row(
                       children: [
-                        _buildActionBtn("Tolak", Colors.red, () => _updateStatus(item['id_peminjaman'], 'ditolak')),
+                        _buildActionBtn("Tolak", Colors.red, () => _openTolakDialog(item['id_pinjam'], namaUser)),
                         const SizedBox(width: 8),
-                        _buildActionBtn("Setuju", Colors.green, () => _updateStatus(item['id_peminjaman'], 'disetujui')),
+                        _buildActionBtn("Setuju", Colors.green, () => _updateStatus(item['id_pinjam'], 'aktif', namaUser)),
                       ],
                     )
                   ],
                 ),
-                const SizedBox(height: 20),
-                
-                // Info Pengambilan, Tenggat, Alat
+                const SizedBox(height: 15),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildInfoColumn("Pengambilan", item['tgl_pinjam'].toString().substring(0,10)),
-                    _buildInfoColumn("Tenggat", item['tgl_kembali'].toString().substring(0,10)),
-                    _buildInfoColumn("Alat", "${item['total_item']}", isBlue: true),
+                    _buildInfoColumn("Pengambilan", _formatDate(item['pengambilan'])),
+                    _buildInfoColumn("Tenggat", _formatDate(item['tenggat'])),
+                    _buildInfoColumn("Alat", "Detail >", isBlue: true),
                   ],
                 ),
-                
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    "Lihat detail >",
-                    style: GoogleFonts.poppins(fontSize: 10, color: Colors.black54),
-                  ),
-                )
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return "-";
+    return DateFormat('dd/MM/yyyy').format(DateTime.parse(dateStr).toLocal());
   }
 
   Widget _buildActionBtn(String label, Color color, VoidCallback onTap) {
@@ -250,10 +237,10 @@ class _FormPersetujuanState extends State<FormPersetujuan> with TickerProviderSt
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           side: BorderSide(color: color),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          padding: const EdgeInsets.symmetric(horizontal: 15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
         ),
-        child: Text(label, style: GoogleFonts.poppins(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+        child: Text(label, style: GoogleFonts.poppins(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -261,16 +248,8 @@ class _FormPersetujuanState extends State<FormPersetujuan> with TickerProviderSt
   Widget _buildInfoColumn(String label, String value, {bool isBlue = false}) {
     return Column(
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF02182F))),
-        const SizedBox(height: 5),
-        Text(
-          value, 
-          style: GoogleFonts.poppins(
-            fontSize: 11, 
-            color: isBlue ? Colors.blue : Colors.black87,
-            fontWeight: isBlue ? FontWeight.bold : FontWeight.normal
-          )
-        ),
+        Text(label, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold)),
+        Text(value, style: GoogleFonts.poppins(fontSize: 10, color: isBlue ? Colors.blue : Colors.black)),
       ],
     );
   }

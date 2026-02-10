@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../ui/profil.dart';
+
+// Pastikan import ProfilScreen sudah benar sesuai struktur folder kamu
+// import 'profil_screen.dart'; 
 
 class DashboardPetugasScreen extends StatefulWidget {
   const DashboardPetugasScreen({super.key});
@@ -20,31 +24,95 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
     _loadUserData();
   }
 
-  Future<void> _loadUserData() async {
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        final data = await Supabase.instance.client
-            .from('users')
-            .select('nama_lengkap, role')
-            .eq('id_user', user.id)
-            .single();
+ Future<void> _loadUserData() async {
+  try {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      final data = await Supabase.instance.client
+          .from('users')
+          .select('nama, role') // Pastikan nama kolom di DB adalah 'nama' sesuai screenshot ERD
+          .eq('id_user', user.id)
+          .single();
 
-        setState(() {
-          userName = data['nama_lengkap'] ?? "User";
-          String roleRaw = data['role'] ?? "petugas";
-          userRole = roleRaw[0].toUpperCase() + roleRaw.substring(1);
-          isLoading = false;
-        });
-      }
-    } catch (e) {
       setState(() {
-        userName = "Error";
-        userRole = "Petugas";
+        // Logika: Gunakan 'nama' dari DB, jika null/kosong ambil dari email
+        String fullNama = data['nama'] ?? "";
+        
+        if (fullNama.isEmpty) {
+          // Ambil bagian depan email sebelum @
+          userName = user.email!.split('@')[0];
+        } else {
+          userName = fullNama;
+        }
+
+        String roleRaw = data['role'] ?? "petugas";
+        userRole = roleRaw[0].toUpperCase() + roleRaw.substring(1);
         isLoading = false;
       });
     }
+  } catch (e) {
+    // Jika error (misal user belum ada di tabel 'users'), ambil dari email sebagai fallback
+    final user = Supabase.instance.client.auth.currentUser;
+    setState(() {
+      userName = user?.email?.split('@')[0] ?? "User";
+      userRole = "Petugas";
+      isLoading = false;
+    });
   }
+}
+
+Widget _buildHeader() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 25),
+    child: Row(
+      children: [
+        GestureDetector(
+          onTap: () {
+            // Berpindah ke halaman profil.dart
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilScreen()),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: const CircleAvatar(
+              radius: 26,
+              backgroundColor: Color(0xFFF5F5F5),
+              child: Icon(Icons.person, color: Colors.black54),
+            ),
+          ),
+        ),
+        const SizedBox(width: 15),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Hi, $userName!",
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1A1A1A),
+              ),
+            ),
+            Text(
+              userRole,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -57,90 +125,70 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
         child: isLoading
             ? const Center(child: CircularProgressIndicator(color: primaryBlue))
             : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 25),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 40),
-                    // Header Profile sesuai Gambar
-                    Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 38,
-                          backgroundColor: Color(0xFF34495E), // Warna avatar gelap
-                          child: Icon(Icons.person, size: 50, color: Colors.white),
-                        ),
-                        const SizedBox(width: 15),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Hi, $userName!",
-                              style: GoogleFonts.poppins(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: primaryBlue,
-                              ),
-                            ),
-                            Text(
-                              userRole,
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: Colors.black54,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 40),
-
-                    // Grafik Section
-                    Row(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: primaryBlue,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          "Grafik alat paling sering dipinjam",
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 30),
-                    _buildChartSection(primaryBlue, softGrey),
                     
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 25),
-                      child: Divider(color: Colors.black12, thickness: 1.5),
+                    // Memanggil Header yang baru
+                    _buildHeader(),
+                    
+                    const SizedBox(height: 40),
+
+                    // Konten Utama
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 25),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Grafik Section
+                          Row(
+                            children: [
+                              Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: primaryBlue,
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                "Grafik alat paling sering dipinjam",
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 30),
+                          _buildChartSection(primaryBlue, softGrey),
+                          
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 25),
+                            child: Divider(color: Colors.black12, thickness: 1.5),
+                          ),
+
+                          // Alat yang sedang dipinjam Section
+                          _buildSectionHeader("Alat yang sedang dipinjam"),
+                          const SizedBox(height: 15),
+                          _buildToolItem("Proyektor", "Elektronik", "1", primaryBlue),
+                          _buildToolItem("Gitar", "Alat musik", "1", primaryBlue),
+
+                          const SizedBox(height: 30),
+
+                          // Daftar alat segera dikembalikan Section
+                          _buildSectionHeader("Daftar alat segera dikembalikan"),
+                          const SizedBox(height: 15),
+                          _buildToolItem("Proyektor", "Elektronik", "1", primaryBlue),
+                          _buildToolItem("Gitar", "Alat musik", "1", primaryBlue),
+
+                          const SizedBox(height: 120),
+                        ],
+                      ),
                     ),
-
-                    // Alat yang sedang dipinjam Section
-                    _buildSectionHeader("Alat yang sedang dipinjam"),
-                    const SizedBox(height: 15),
-                    _buildToolItem("Proyektor", "Elektronik", "1", primaryBlue),
-                    _buildToolItem("Gitar", "Alat musik", "1", primaryBlue),
-
-                    const SizedBox(height: 30),
-
-                    // Daftar alat segera dikembalikan Section
-                    _buildSectionHeader("Daftar alat segera dikembalikan"),
-                    const SizedBox(height: 15),
-                    _buildToolItem("Proyektor", "Elektronik", "1", primaryBlue),
-                    _buildToolItem("Gitar", "Alat musik", "1", primaryBlue),
-
-                    const SizedBox(height: 120), // Padding bawah agar tidak tertutup nav
                   ],
                 ),
               ),
@@ -148,14 +196,12 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
     );
   }
 
+  // --- Widget Helper tetap sama ---
   Widget _buildSectionHeader(String title) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold),
-        ),
+        Text(title, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -187,7 +233,6 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
       ),
       child: Row(
         children: [
-          // Gambar Alat (Disesuaikan dengan aset yang ada atau placeholder)
           Container(
             width: 60,
             height: 60,
@@ -224,7 +269,7 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
         children: [
           RotatedBox(
             quarterTurns: 3,
-            child: Text("( Jumlah alat yang dipinjam )", style: GoogleFonts.poppins(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.w500)),
+            child: Text("( Jumlah alat )", style: GoogleFonts.poppins(fontSize: 10, color: Colors.black87)),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -242,7 +287,7 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
                     children: [
                       _buildBar("Proyektor", 160, blue),
                       _buildBar("Tv", 150, grey),
-                      _buildBar("Bola basket", 130, blue),
+                      _buildBar("Bola", 130, blue),
                       _buildBar("Remot", 90, grey),
                       _buildBar("Meja", 70, blue),
                     ],
@@ -259,8 +304,8 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
   Widget _buildYAxisLine(String val) {
     return Row(
       children: [
-        SizedBox(width: 30, child: Text(val, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500))),
-        const Expanded(child: Divider(color: Colors.black26, thickness: 1)),
+        SizedBox(width: 30, child: Text(val, style: GoogleFonts.poppins(fontSize: 11))),
+        const Expanded(child: Divider(color: Colors.black12, thickness: 1)),
       ],
     );
   }
@@ -270,15 +315,15 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Container(
-          width: 25,
+          width: 20,
           height: height,
           decoration: BoxDecoration(
             color: color, 
             borderRadius: BorderRadius.circular(4),
           ),
         ),
-        const SizedBox(height: 10),
-        Text(label, style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 5),
+        Text(label, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold)),
       ],
     );
   }

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
+// Import file detail pinjaman kamu di sini
+import '../pinjaman/detail_pinjaman_peminjam.dart';
 
 class PinjamanSayaScreen extends StatefulWidget {
   const PinjamanSayaScreen({super.key});
@@ -9,12 +13,62 @@ class PinjamanSayaScreen extends StatefulWidget {
 }
 
 class _PinjamanSayaScreenState extends State<PinjamanSayaScreen> {
-  // Data dummy untuk tampilan sesuai gambar
-  final List<Map<String, dynamic>> _pinjamanData = [
-    {'nama': 'Monica', 'tanggal': '12/01/2026', 'status': 'Aktif', 'color': const Color(0xFF1ED72D)},
-    {'nama': 'Monica', 'tanggal': '12/01/2026', 'status': 'Terlambat', 'color': const Color(0xFFE52121)},
-    {'nama': 'Monica', 'tanggal': '12/01/2026', 'status': 'Pending', 'color': const Color(0xFF02182F)},
-  ];
+  final supabase = Supabase.instance.client;
+  bool _isLoading = true;
+  List<dynamic> _listPinjaman = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMyLoans();
+  }
+
+  Future<void> _fetchMyLoans() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+
+      // UPDATE: Mengurutkan berdasarkan id_pinjam terbaru (Descending)
+      final data = await supabase
+          .from('peminjaman')
+          .select('*, users!peminjam_id(nama)')
+          .eq('peminjam_id', user.id)
+          .order('id_pinjam', ascending: false); 
+
+      if (mounted) {
+        setState(() {
+          _listPinjaman = data;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error Fetch Pinjaman: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Map<String, dynamic> _getStatusStyle(dynamic item) {
+    String statusStr = item['status_transaksi'].toString().toLowerCase();
+    DateTime tenggat = DateTime.parse(item['tenggat']);
+    DateTime sekarang = DateTime.now();
+
+    if (statusStr == 'aktif' && sekarang.isAfter(tenggat)) {
+      return {'label': 'Terlambat', 'color': const Color(0xFFE52121)};
+    }
+
+    switch (statusStr) {
+      case 'pending':
+        return {'label': 'Pending', 'color': const Color(0xFF02182F)};
+      case 'aktif':
+        return {'label': 'Aktif', 'color': const Color(0xFF1ED72D)};
+      case 'ditolak':
+        return {'label': 'Ditolak', 'color': Colors.grey};
+      default:
+        return {'label': statusStr.toUpperCase(), 'color': Colors.orange};
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +78,6 @@ class _PinjamanSayaScreenState extends State<PinjamanSayaScreen> {
         child: Column(
           children: [
             const SizedBox(height: 40),
-            // Judul Halaman
             Center(
               child: Text(
                 "Aktivitas",
@@ -37,7 +90,7 @@ class _PinjamanSayaScreenState extends State<PinjamanSayaScreen> {
             ),
             const SizedBox(height: 30),
             
-            // Search Bar sesuai desain gambar
+            // Search Bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 25),
               child: Container(
@@ -59,15 +112,21 @@ class _PinjamanSayaScreenState extends State<PinjamanSayaScreen> {
             ),
             const SizedBox(height: 25),
 
-            // List Aktivitas Pinjaman
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 25),
-                itemCount: _pinjamanData.length,
-                itemBuilder: (context, index) {
-                  return _buildAktivitasCard(_pinjamanData[index]);
-                },
-              ),
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : _listPinjaman.isEmpty 
+                  ? Center(child: Text("Belum ada aktivitas pinjaman", style: GoogleFonts.poppins()))
+                  : RefreshIndicator(
+                      onRefresh: _fetchMyLoans,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 25),
+                        itemCount: _listPinjaman.length,
+                        itemBuilder: (context, index) {
+                          return _buildAktivitasCard(_listPinjaman[index]);
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -75,49 +134,64 @@ class _PinjamanSayaScreenState extends State<PinjamanSayaScreen> {
     );
   }
 
-  Widget _buildAktivitasCard(Map<String, dynamic> data) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          // Kolom teks Nama dan Tanggal
-          Expanded(
-            child: Column(
-              children: [
-                _buildInfoRow("Nama", data['nama']),
-                const SizedBox(height: 5),
-                _buildInfoRow("Tanggal", data['tanggal']),
-              ],
-            ),
-          ),
-          
-          // Badge Status
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: data['color'],
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              data['status'],
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+  Widget _buildAktivitasCard(dynamic item) {
+    final statusStyle = _getStatusStyle(item);
+    String formattedDate = DateFormat('dd/MM/yyyy').format(DateTime.parse(item['pengambilan']));
+
+    // UPDATE: Menambahkan GestureDetector agar card bisa diklik
+            return GestureDetector(
+              onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => DetailPinjamanScreen(idPinjam: item['id_pinjam']))
+          );
+        },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 15),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            )
+          ]
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  _buildInfoRow("Nama", item['users']?['nama'] ?? "User"),
+                  const SizedBox(height: 5),
+                  _buildInfoRow("Tanggal", formattedDate),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          
-          // Icon Arrow
-          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black87),
-        ],
+            
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusStyle['color'],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                statusStyle['label'],
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black87),
+          ],
+        ),
       ),
     );
   }
@@ -137,7 +211,7 @@ class _PinjamanSayaScreenState extends State<PinjamanSayaScreen> {
           ),
         ),
         Text(
-          ":  $value",
+          ":   $value",
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w500,

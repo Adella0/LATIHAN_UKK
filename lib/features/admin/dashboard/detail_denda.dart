@@ -12,15 +12,22 @@ class DetailDendaPage extends StatefulWidget {
 
 class _DetailDendaPageState extends State<DetailDendaPage> {
   bool _isLoading = true;
-  List<Map<String, dynamic>> _listDenda = [];
+  List<Map<String, dynamic>> _allDenda = []; 
+  List<Map<String, dynamic>> _filteredDenda = []; 
+  
+  final List<String> _hariNama = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+  
+  // Perbaikan: Inisialisasi index agar sesuai dengan hari hari ini
+  // Senin = 0, Selasa = 1 ... Minggu = 6
+  int _selectedDayIndex = DateTime.now().weekday - 1; 
 
   @override
   void initState() {
     super.initState();
-    _fetchDendaBulanan();
+    _fetchDendaMingguan();
   }
 
-  Future<void> _fetchDendaBulanan() async {
+  Future<void> _fetchDendaMingguan() async {
     try {
       final supabase = Supabase.instance.client;
       final response = await supabase.from('denda').select('''
@@ -28,6 +35,7 @@ class _DetailDendaPageState extends State<DetailDendaPage> {
               total_denda,
               jumlah_terlambat,
               peminjaman:id_kembali (
+                Pengembalian, 
                 users:peminjam_id (
                   nama
                 )
@@ -36,30 +44,60 @@ class _DetailDendaPageState extends State<DetailDendaPage> {
 
       if (mounted) {
         setState(() {
-          _listDenda = List<Map<String, dynamic>>.from(response);
+          _allDenda = List<Map<String, dynamic>>.from(response);
+          // Langsung jalankan filter untuk hari ini
+          _applyFilter(_selectedDayIndex); 
           _isLoading = false;
         });
       }
     } catch (e) {
-      debugPrint("ERROR: $e");
+      debugPrint("ERROR FETCH: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  void _applyFilter(int dayIndex) {
+    setState(() {
+      _selectedDayIndex = dayIndex;
+
+      // Logika Penentuan Tanggal Target di Minggu Ini
+      DateTime sekarang = DateTime.now();
+      // Cari tanggal hari Senin di minggu ini
+      DateTime awalMingguIni = sekarang.subtract(Duration(days: sekarang.weekday - 1));
+      // Tentukan tanggal yang dicari berdasarkan index yang diklik
+      DateTime tanggalTarget = awalMingguIni.add(Duration(days: dayIndex));
+
+      _filteredDenda = _allDenda.where((item) {
+        final tglRaw = item['peminjaman']?['Pengembalian'];
+        if (tglRaw == null) return false;
+
+        try {
+          DateTime tglData = DateTime.parse(tglRaw).toLocal();
+          
+          // PERBAIKAN: Bandingkan Tanggal, Bulan, dan Tahun agar 
+          // hanya muncul data di minggu ini saja (bukan Senin bulan lalu)
+          return tglData.year == tanggalTarget.year &&
+                 tglData.month == tanggalTarget.month &&
+                 tglData.day == tanggalTarget.day;
+        } catch (e) {
+          return false;
+        }
+      }).toList();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    int totalDenda = 0;
-    for (var item in _listDenda) {
-      totalDenda += (item['total_denda'] as num? ?? 0).toInt();
+    int totalDendaTerfilter = 0;
+    for (var item in _filteredDenda) {
+      totalDendaTerfilter += (item['total_denda'] as num? ?? 0).toInt();
     }
 
     return Scaffold(
-      // MENGUBAH BACKGROUND MENJADI PUTIH
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text("Laporan Denda",
-            style: GoogleFonts.poppins(
-                color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text("Laporan Denda Mingguan",
+            style: GoogleFonts.poppins(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -67,91 +105,130 @@ class _DetailDendaPageState extends State<DetailDendaPage> {
       ),
       body: Column(
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              // Shadow tipis agar tetap terlihat elegan di background putih
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                )
-              ],
-            ),
-            child: Column(
-              children: [
-                Text("Total Pendapatan Denda",
-                    style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-                Text(
-                  NumberFormat.currency(
-                          locale: 'id', symbol: 'Rp ', decimalDigits: 0)
-                      .format(totalDenda),
-                  style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red.shade700),
-                ),
-              ],
-            ),
-          ),
+          _buildDayFilter(),
           const SizedBox(height: 10),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _listDenda.isEmpty
-                    ? const Center(child: Text("Data tidak ditemukan"))
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D1B3E)))
+                : _filteredDenda.isEmpty
+                    ? Center(child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.info_outline, size: 50, color: Colors.grey.shade300),
+                          const SizedBox(height: 10),
+                          Text("Tidak ada denda di hari ${_hariNama[_selectedDayIndex]}", 
+                               style: GoogleFonts.poppins(color: Colors.grey)),
+                        ],
+                      ))
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 15),
-                        itemCount: _listDenda.length,
+                        itemCount: _filteredDenda.length,
                         itemBuilder: (context, index) {
-                          final item = _listDenda[index];
-
-                          final String namaUser =
-                              item['peminjaman']?['users']?['nama'] ??
-                                  "User #${item['id_kembali']}";
+                          final item = _filteredDenda[index];
+                          final String namaUser = item['peminjaman']?['users']?['nama'] ?? "User";
                           final int terlambat = item['jumlah_terlambat'] ?? 0;
-                          final int nominal =
-                              (item['total_denda'] as num? ?? 0).toInt();
+                          final int nominal = (item['total_denda'] as num? ?? 0).toInt();
 
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            elevation: 0,
-                            color: Colors.white, // Card tetap putih
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey.shade100),
-                            ),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                // MENGUBAH AVATAR MENJADI ABU-ABU
-                                backgroundColor: Colors.grey.shade200,
-                                child: Icon(Icons.person,
-                                    color: Colors.grey.shade600),
-                              ),
-                              title: Text(namaUser,
-                                  style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13)),
-                              subtitle: Text("Terlambat: $terlambat Hari",
-                                  style: GoogleFonts.poppins(fontSize: 11)),
-                              trailing: Text(
-                                NumberFormat.currency(
-                                        locale: 'id',
-                                        symbol: 'Rp ',
-                                        decimalDigits: 0)
-                                    .format(nominal),
-                                style: GoogleFonts.poppins(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.red.shade700,
-                                    fontSize: 13),
-                              ),
-                            ),
-                          );
+                          return _buildDendaCard(namaUser, terlambat, nominal);
                         },
                       ),
+          ),
+          _buildBottomSummary(totalDendaTerfilter),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDayFilter() {
+    int currentWeekday = DateTime.now().weekday; 
+
+    return Container(
+      height: 80,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        itemCount: 7,
+        itemBuilder: (context, index) {
+          // index 0=Senin, 6=Minggu. currentWeekday 1=Senin, 7=Minggu.
+          bool isFuture = (index + 1) > currentWeekday; 
+          bool isSelected = _selectedDayIndex == index;
+
+          return GestureDetector(
+            onTap: isFuture ? null : () => _applyFilter(index), 
+            child: Container(
+              width: 55,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF0D1B3E) : (isFuture ? Colors.grey.shade100 : Colors.white),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: isSelected ? Colors.transparent : Colors.grey.shade200),
+                boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF0D1B3E).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(_hariNama[index],
+                      style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? Colors.white : (isFuture ? Colors.grey.shade400 : Colors.black87))),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDendaCard(String nama, int hari, int nominal) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFFF0F2F5),
+          child: Text(nama.isNotEmpty ? nama[0].toUpperCase() : "?", 
+                 style: const TextStyle(color: Color(0xFF0D1B3E), fontWeight: FontWeight.bold)),
+        ),
+        title: Text(nama, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14)),
+        subtitle: Text("Terlambat: $hari Hari", style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
+        trailing: Text(
+          NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0).format(nominal),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.red.shade700, fontSize: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomSummary(int total) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(25, 20, 25, 30),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("Total Denda", style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+              Text(_hariNama[_selectedDayIndex], style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          Text(
+            NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0).format(total),
+            style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.red.shade700),
           ),
         ],
       ),
