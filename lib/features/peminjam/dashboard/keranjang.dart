@@ -99,39 +99,72 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
     });
   }
 
-  Future<void> _ajukanPinjaman() async {
-    // Validasi Ganda sebelum Submit
-    if (isPending) return;
+ Future<void> _ajukanPinjaman() async {
+  if (isPending) return;
 
-    if (_namaController.text.isEmpty || tglPengambilan == null || tglTenggat == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Mohon lengkapi semua data!")),
-      );
-      return;
-    }
-
-    try {
-      final user = supabase.auth.currentUser;
-      
-      await supabase.from('peminjaman').insert({
-        'id_user': user?.id,
-        'nama_peminjam': _namaController.text,
-        'tgl_pinjam': tglPengambilan!.toIso8601String(),
-        'tgl_kembali': tglTenggat!.toIso8601String(),
-        'status': 'pending',
-        'total_item': totalUnit,
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Berhasil! Menunggu konfirmasi petugas"), backgroundColor: Colors.green),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      debugPrint("Error simpan: $e");
-    }
+  if (_namaController.text.isEmpty || tglPengambilan == null || tglTenggat == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Mohon lengkapi semua data!")),
+    );
+    return;
   }
+
+  try {
+    setState(() => isLoading = true);
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    // 1. INSERT KE TABEL PEMINJAMAN
+    // Catatan: Sesuai gambar skema Anda, nama kolom adalah 'peminjam_id', 'pengambilan', 'tenggat'
+    final peminjamanResponse = await supabase.from('peminjaman').insert({
+      'peminjam_id': user.id,
+      'pengambilan': tglPengambilan!.toIso8601String(),
+      'tenggat': tglTenggat!.toIso8601String(),
+      'status_transaksi': 'pending', // Gunakan status sesuai enum di DB Anda
+    }).select().single();
+
+    final int idPeminjaman = peminjamanResponse['id_pinjam'];
+
+    // 2. INSERT KE TABEL DETAIL_PEMINJAMAN (Banyak data sekaligus)
+    final List<Map<String, dynamic>> detailData = [];
+    cartItems.forEach((idAlat, qty) {
+      detailData.add({
+        'id_pinjam': idPeminjaman,
+        'id_alat': idAlat,
+        'jumlah': qty,
+      });
+    });
+
+    await supabase.from('detail_peminjaman').insert(detailData);
+
+    // 3. INSERT KE TABEL LOG_AKTIVITAS
+    await supabase.from('log_aktivitas').insert({
+      'user_id': user.id,
+      'aksi': 'Pengajuan Pinjaman',
+      'keterangan': 'Mengajukan pinjaman untuk $totalUnit alat',
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Berhasil! Menunggu konfirmasi petugas"), 
+          backgroundColor: Colors.green
+        ),
+      );
+      // Kembali ke home dan kosongkan keranjang
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
+  } catch (e) {
+    debugPrint("Error simpan transaksi: $e");
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal mengajukan: $e"), backgroundColor: Colors.red),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => isLoading = false);
+  }
+}
 
   @override
   Widget build(BuildContext context) {
