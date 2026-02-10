@@ -23,12 +23,12 @@ class _DetailPinjamanScreenState extends State<DetailPinjamanScreen> {
     _fetchDetailLengkap();
   }
 
-  // Taktik 2 Tahap: Agar tidak bentrok relasi PGRST201 dan data pasti aman
+  // Taktik 2 Tahap: Menghindari error relasi PGRST201
   Future<void> _fetchDetailLengkap() async {
     try {
       setState(() => _isLoading = true);
 
-      // 1. Ambil data utama & User
+      // 1. Ambil data utama & User (Peminjam)
       final resPinjam = await supabase
           .from('peminjaman')
           .select('*, peminjam:users!peminjam_id(nama)')
@@ -36,7 +36,7 @@ class _DetailPinjamanScreenState extends State<DetailPinjamanScreen> {
           .maybeSingle();
 
       if (resPinjam != null) {
-        // 2. Ambil detail alat (Gunakan relasi spesifik agar tidak PGRST201)
+        // 2. Ambil detail alat (Gunakan relasi spesifik)
         final resAlat = await supabase
             .from('detail_peminjaman')
             .select('jumlah, alat:alat!detail_peminjaman_id_alat_fkey(nama_alat, foto_url, kategori:kategori_id(nama_kategori))')
@@ -51,10 +51,51 @@ class _DetailPinjamanScreenState extends State<DetailPinjamanScreen> {
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      debugPrint("Error Fatal Peminjam: $e");
+      debugPrint("Error Fetch Peminjam: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  // LOGIKA PENGAJUAN PENGEMBALIAN
+ Future<void> _ajukanPengembalian() async {
+  try {
+    setState(() => _isLoading = true);
+
+    await supabase.from('peminjaman').update({
+      'status_transaksi': 'proses_kembali', 
+      'Pengembalian': DateTime.now().toIso8601String(), // PAKAI P KAPITAL
+    }).eq('id_pinjam', widget.idPinjam);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Berhasil diajukan! Data sudah dikirim ke Petugas."),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // Kembali ke halaman list agar data ter-refresh
+      Navigator.pop(context, true); 
+    }
+  } catch (e) {
+    debugPrint("Error Detail: $e");
+    
+    // Jika error PGRST204 muncul lagi, berarti namanya mungkin 'Pengembalian' (P Kapital)
+    // Mari kita coba deteksi otomatis di sini
+    if (e.toString().contains('pengembalian')) {
+       debugPrint("Tip: Coba cek apakah di database namanya 'Pengembalian' (P besar)?");
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Gagal: Kolom pengembalian tidak ditemukan di database."),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
 
   String _formatDate(String? date) {
     if (date == null || date == "null" || date.isEmpty) return "-";
@@ -81,70 +122,87 @@ class _DetailPinjamanScreenState extends State<DetailPinjamanScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF02182F)))
-          : _dataPinjam == null 
-              ? const Center(child: Text("Data tidak ditemukan"))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(25),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Nama", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      _buildStaticField(_dataPinjam?['peminjam']?['nama'] ?? "Nama tidak ditemukan"),
-                      
-                      const SizedBox(height: 20),
-                      
-                      // Info Box Tanggal (Sesuai Gambar Monica)
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-                          border: Border.all(color: Colors.grey.shade100),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildDateItem("Pengambilan", _formatDate(_dataPinjam?['pengambilan'])),
-                            _buildDateItem("Tenggat", _formatDate(_dataPinjam?['tenggat'])),
-                            _buildDateItem("Pengembalian", _formatDate(_dataPinjam?['pengembalian'])),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(height: 25),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text("Alat:", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text("Total alat (${_listAlat.length})", style: GoogleFonts.poppins(fontSize: 12, color: Colors.blueGrey)),
-                        ],
-                      ),
-                      const SizedBox(height: 15),
-
-                      // List Alat
-                      ..._listAlat.map((item) => _buildAlatCard(item)).toList(),
-
-                      // Tombol Ajukan Pengembalian (Hanya jika Status Aktif)
-                      if (_dataPinjam?['status_transaksi'] == 'aktif') ...[
-                        const SizedBox(height: 40),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: () { /* Fungsi pengembalian Anda */ },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF02182F),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: Text("Ajukan pengembalian", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                      ]
-                    ],
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(25),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Nama", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  _buildStaticField(_dataPinjam?['peminjam']?['nama'] ?? "Nama tidak ditemukan"),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Info Box Tanggal
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                      border: Border.all(color: Colors.grey.shade100),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildDateItem("Pengambilan", _formatDate(_dataPinjam?['pengambilan'])),
+                        _buildDateItem("Tenggat", _formatDate(_dataPinjam?['tenggat'])),
+                        _buildDateItem("Pengembalian", _formatDate(_dataPinjam?['pengembalian'])),
+                      ],
+                    ),
                   ),
-                ),
+                  
+                  const SizedBox(height: 25),
+                  Text("Alat:", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 15),
+
+                  // List Alat
+                  ..._listAlat.map((item) => _buildAlatCard(item)).toList(),
+
+                  // TOMBOL AKSI (Hanya muncul jika status masih 'aktif')
+                  if (_dataPinjam?['status_transaksi'] == 'aktif') ...[
+                    const SizedBox(height: 40),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () => _showConfirmDialog(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF02182F),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text("Ajukan pengembalian", 
+                          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ] else if (_dataPinjam?['status_transaksi'] == 'proses_kembali') ...[
+                    const SizedBox(height: 40),
+                    Center(child: Text("Menunggu Konfirmasi Petugas...", 
+                      style: GoogleFonts.poppins(color: Colors.orange, fontWeight: FontWeight.bold))),
+                  ]
+                ],
+              ),
+            ),
+    );
+  }
+
+  void _showConfirmDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Konfirmasi"),
+        content: const Text("Apakah Anda sudah yakin ingin mengembalikan alat ini?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal")),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _ajukanPengembalian();
+            }, 
+            child: const Text("Ya, Ajukan", style: TextStyle(color: Colors.red))
+          ),
+        ],
+      ),
     );
   }
 
@@ -152,12 +210,8 @@ class _DetailPinjamanScreenState extends State<DetailPinjamanScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Text(value, style: GoogleFonts.poppins(color: Colors.black87)),
+      decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
+      child: Text(value, style: GoogleFonts.poppins()),
     );
   }
 
@@ -168,8 +222,7 @@ class _DetailPinjamanScreenState extends State<DetailPinjamanScreen> {
         Text(label, style: GoogleFonts.poppins(color: const Color(0xFF02182F), fontSize: 11, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Text(parts[0].trim(), style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w500)),
-        if (parts.length > 1)
-          Text(parts[1].trim(), style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
+        if (parts.length > 1) Text(parts[1].trim(), style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
       ],
     );
   }
@@ -179,12 +232,7 @@ class _DetailPinjamanScreenState extends State<DetailPinjamanScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)],
-      ),
+      decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(15)),
       child: Row(
         children: [
           ClipRRect(
@@ -192,7 +240,7 @@ class _DetailPinjamanScreenState extends State<DetailPinjamanScreen> {
             child: Image.network(
               alat?['foto_url'] ?? 'https://via.placeholder.com/50',
               width: 50, height: 50, fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2, size: 30, color: Colors.grey),
+              errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2),
             ),
           ),
           const SizedBox(width: 15),
@@ -201,7 +249,7 @@ class _DetailPinjamanScreenState extends State<DetailPinjamanScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(alat?['nama_alat'] ?? "Alat", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-                Text(alat?['kategori']?['nama_kategori'] ?? "Elektronik", style: GoogleFonts.poppins(fontSize: 12, color: Colors.blueGrey)),
+                Text(alat?['kategori']?['nama_kategori'] ?? "Kategori", style: GoogleFonts.poppins(fontSize: 12, color: Colors.blueGrey)),
               ],
             ),
           ),

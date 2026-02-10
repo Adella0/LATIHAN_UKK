@@ -1,4 +1,5 @@
 import 'package:apk_peminjaman/features/petugas/dashboard/dashboard_petugas_screen.dart';
+import 'package:apk_peminjaman/features/petugas/pengembalian/list_pengembalian.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../persetujuan/form_persetujuan.dart';
@@ -16,7 +17,8 @@ class _MainNavPetugasState extends State<MainNavPetugas> {
   // Daftar halaman untuk Petugas (Sesuaikan dengan Class Screen Anda)
   final List<Widget> _pages = [
     const DashboardPetugasScreen(),// Ganti dengan DashboardPetugasScreen()
-    const FormPersetujuan()
+    const FormPersetujuan(),
+    const ListPengembalian()
   ];
 
   @override
