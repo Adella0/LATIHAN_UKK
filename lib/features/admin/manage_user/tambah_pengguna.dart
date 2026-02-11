@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-
 class TambahPenggunaDialog extends StatefulWidget {
   const TambahPenggunaDialog({super.key});
 
@@ -20,41 +19,63 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
 
   final supabase = Supabase.instance.client;
 
- Future<void> _tambahPengguna() async {
-  if (!_formKey.currentState!.validate()) return;
-  setState(() => _isLoading = true);
+  // FUNGSI SIMPAN AKUN YANG SUDAH DIPERBAIKI
+  Future<void> _simpanAkun() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  try {
-    // KITA TIDAK PAKAI supabase.auth.signUp agar Admin tidak Logout.
-    // Kita langsung simpan ke tabel 'users'.
-    
-    await supabase.from('users').insert({
-      // Karena tidak lewat Auth, kita buat ID unik sementara (misal: pakai timestamp)
-      // ATAU biarkan database yang meng-generate ID-nya.
-      'nama': _namaController.text.trim(),
-      'email': _emailController.text.trim(),
-      'password': _passwordController.text.trim(), // Simpan teks biasa (Hanya untuk latihan/tugas)
-      'role': _selectedRole?.toLowerCase(),
-    });
+    setState(() => _isLoading = true);
 
-    if (mounted) {
-      Navigator.pop(context); // Tutup dialog
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("User berhasil ditambahkan ke list!"),
-          backgroundColor: Colors.green,
-        ),
+    try {
+      // 1. Daftarkan di Auth Supabase
+      final AuthResponse response = await supabase.auth.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        // Metadata opsional agar nama tersimpan juga di sistem Auth
+        data: {'nama': _namaController.text.trim()}, 
       );
+
+      final String? idOtomatis = response.user?.id;
+
+      if (idOtomatis != null) {
+        // 2. Masukkan ke tabel 'users' di public schema
+        await supabase.from('users').insert({
+          'id_user': idOtomatis, // ID dari Auth
+          'nama': _namaController.text.trim(),
+          'email': _emailController.text.trim(),
+          'role': _selectedRole?.toLowerCase(), // Mengambil role dari dropdown
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Pengguna Berhasil Ditambahkan")),
+          );
+          Navigator.pop(context, true); // Tutup dialog dan beri sinyal refresh
+        }
+      }
+    } on AuthException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Terjadi kesalahan sistem"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } catch (e) {
-    print("DETAIL ERROR: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Gagal Simpan: $e"), backgroundColor: Colors.red),
-    );
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
   }
-}
+
+  @override
+  void dispose() {
+    _namaController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,12 +91,11 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // GARIS HANDLE ATAS (Sesuai Desain Figma)
                 Container(
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: Colors.black26,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -89,20 +109,16 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
                   ),
                 ),
                 const SizedBox(height: 25),
-                
                 _buildInput("Nama", _namaController, false, "Masukkan Nama"),
                 _buildInput("Email", _emailController, false, "Masukkan Email"),
                 _buildInput("Password", _passwordController, true, "Masukkan Password"),
                 _buildDropdown(),
-
                 const SizedBox(height: 35),
-                
-                // TOMBOL TAMBAH
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _tambahPengguna,
+                  onPressed: _isLoading ? null : _simpanAkun, // Pastikan memanggil _simpanAkun
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF02182F),
-                    minimumSize: const Size(160, 48),
+                    minimumSize: const Size(double.infinity, 48), // Dibuat full width agar lebih rapi
                     elevation: 5,
                     shadowColor: Colors.black.withOpacity(0.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
@@ -131,17 +147,14 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
     );
   }
 
+  // Widget _buildInput dan _buildDropdown tetap sama seperti milikmu
   Widget _buildInput(String label, TextEditingController controller, bool isPass, String hint) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w500,
-            fontSize: 14,
-            color: Colors.black,
-          ),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 14, color: Colors.black),
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -186,11 +199,7 @@ class _TambahPenggunaDialogState extends State<TambahPenggunaDialog> {
       children: [
         Text(
           "Sebagai",
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w500,
-            fontSize: 14,
-            color: Colors.black,
-          ),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w500, fontSize: 14, color: Colors.black),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(

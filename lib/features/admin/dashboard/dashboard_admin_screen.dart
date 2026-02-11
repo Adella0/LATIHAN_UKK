@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart'; 
-import 'daftar_riwayat_aktivitas.dart';
+import 'package:intl/intl.dart';
 import '../ui/profil.dart';
 import 'detail_denda.dart';
 
@@ -15,152 +14,170 @@ class DashboardAdminScreen extends StatefulWidget {
 }
 
 class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
-  String userName = "";
-  String userRole = "";
-  bool isLoading = true;
-
+  final supabase = Supabase.instance.client;
+  
+  String userName = "Admin"; 
   String totalAlat = "0";
   String penggunaAktif = "0";
-  String totalDenda = "0";
-
-  List<Map<String, dynamic>> pieChartData = [];
-  List<Map<String, dynamic>> _logAktivitas = []; 
+  String totalDendaStr = "0"; // Untuk tampilan singkat di card (misal: 50k)
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    _fetchDashboardData();
   }
 
-  Future<void> _loadDashboardData() async {
-    try {
-      final supabase = Supabase.instance.client;
+  // LOGIKA FETCH DATA REAL-TIME
+ Future<void> _fetchDashboardData() async {
+  try {
+    setState(() => isLoading = true);
 
-      final user = supabase.auth.currentUser;
-      if (user != null) {
-        final res = await supabase.from('users').select().eq('id_user', user.id).maybeSingle();
-        if (res != null) {
-          userName = res['nama'] ?? "Admin";
-          userRole = res['role']?.toString().toUpperCase() ?? "ADMIN";
-        }
-      }
+    // 1. Ambil Jumlah Total Alat & User (Gunakan .count() versi terbaru)
+    final resAlat = await supabase.from('alat').select('*').count(CountOption.exact);
+    final resUser = await supabase.from('users').select('*').count(CountOption.exact);
 
-      final resAlat = await supabase.from('alat').select('id_alat');
-      final resUsers = await supabase.from('users').select('id_user');
-      final resDenda = await supabase.from('denda').select('total_denda');
-      
-      double totalNominalDenda = 0;
-      if (resDenda != null) {
-        for (var item in resDenda) {
-          totalNominalDenda += double.tryParse(item['total_denda'].toString()) ?? 0;
-        }
-      }
-      
-      String displayDenda = totalNominalDenda >= 1000 
-          ? "${(totalNominalDenda / 1000).toStringAsFixed(0)}k" 
-          : totalNominalDenda.toInt().toString();
-
-      final resLog = await supabase.from('log_aktivitas').select('''
-          id_log, aksi, keterangan, created_at,
-          users:user_id (nama, role)
-        ''').order('created_at', ascending: false).limit(10); // Limit ditambah agar scroll terasa
-
-      final resChart = await supabase.from('detail_peminjaman').select('jumlah, id_alat');
-      final alatRes = await supabase.from('alat').select('id_alat, nama_alat');
-      
-      Map<dynamic, String> mapAlat = { for (var a in alatRes) a['id_alat']: a['nama_alat'].toString() };
-      Map<String, double> hasilHitung = {};
-      double totalPinjam = 0;
-
-      for (var item in resChart) {
-        String namaAlat = mapAlat[item['id_alat']] ?? "Alat";
-        double jml = double.tryParse(item['jumlah'].toString()) ?? 0;
-        hasilHitung[namaAlat] = (hasilHitung[namaAlat] ?? 0) + jml;
-        totalPinjam += jml;
-      }
-
-      List<Color> palette = [
-        const Color(0xFF0D1B3E),
-        const Color(0xFF1A3D8F),
-        const Color(0xFF3A7BD5),
-        const Color(0xFF74ABE2),
-        const Color(0xFFA6C1EE),
-        const Color(0xFFCBD5E0),
-      ];
-
-      int colorIdx = 0;
-      List<Map<String, dynamic>> dataBaru = hasilHitung.entries.map((e) {
-        double persentase = (e.value / totalPinjam) * 100;
-        return {
-          "label": e.key, 
-          "value": e.value, 
-          "percent": "${persentase.toStringAsFixed(0)}%",
-          "color": palette[colorIdx++ % palette.length]
-        };
-      }).toList();
-
-      if (mounted) {
-        setState(() {
-          totalAlat = (resAlat as List).length.toString();
-          penggunaAktif = (resUsers as List).length.toString();
-          totalDenda = displayDenda;
-          _logAktivitas = List<Map<String, dynamic>>.from(resLog);
-          pieChartData = dataBaru;
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => isLoading = false);
+    // 2. Ambil data denda
+    final List<dynamic> resDenda = await supabase.from('denda').select('total_denda');
+    
+    double akumulasiDenda = 0;
+    for (var item in resDenda) {
+      // Gunakan .toDouble() untuk keamanan perhitungan numeric/decimal
+      akumulasiDenda += (item['total_denda'] as num? ?? 0).toDouble();
     }
+
+    if (mounted) {
+      setState(() {
+        totalAlat = resAlat.count.toString();
+        penggunaAktif = resUser.count.toString();
+        
+        // --- LOGIKA FORMATTING "k" ---
+        if (akumulasiDenda >= 1000) {
+          // Menghasilkan format seperti "10k" atau "10.5k"
+          double inK = akumulasiDenda / 1000;
+          // Jika angka bulat (misal 10.0), tampilkan "10k". Jika tidak, tampilkan 1 desimal "10.5k"
+          totalDendaStr = inK == inK.toInt() 
+              ? "${inK.toInt()}k" 
+              : "${inK.toStringAsFixed(1)}k";
+        } else {
+          totalDendaStr = akumulasiDenda.toInt().toString();
+        }
+        
+        isLoading = false;
+      });
+    }
+  } catch (e) {
+    debugPrint("Error Fetch Dashboard: $e");
+    if (mounted) setState(() {
+      totalDendaStr = "0"; // Default jika error
+      isLoading = false;
+    });
   }
+}
+
+  final List<Map<String, dynamic>> pieChartData = [
+    {"label": "Kipas", "value": 35.0, "color": const Color(0xFF1A3D8F)},
+    {"label": "Proyektor", "value": 12.0, "color": const Color(0xFF3A7BD5)},
+    {"label": "Tv LED", "value": 6.0, "color": const Color(0xFF74ABE2)},
+    {"label": "Bola Basket", "value": 3.0, "color": const Color(0xFF0D1B3E)},
+  ];
+
+  final Color _primaryColor = const Color(0xFF02182F);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF02182F)))
-            : Column( // Menggunakan Column agar header tetap statis
-                crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: isLoading
+          ? Center(child: CircularProgressIndicator(color: _primaryColor))
+          : RefreshIndicator(
+              onRefresh: _fetchDashboardData,
+              child: Column(
                 children: [
-                  const SizedBox(height: 20),
-                  _buildHeader(),
-                  const SizedBox(height: 25),
-                  _buildStatSection(),
-                  const SizedBox(height: 35),
-                  _buildGraphTitle(),
-                  _buildChartSection(),
-                  const SizedBox(height: 30),
-                  _buildActivityHeader(),
-                  // Expanded digunakan agar ListView di bawah mengambil sisa ruang dan bisa scroll
+                  Container(
+                    padding: const EdgeInsets.only(top: 50, bottom: 25),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildHeader(),
+                        const SizedBox(height: 20),
+                        _buildStatSection(),
+                        const SizedBox(height: 30),
+                        _buildModernDonutChart(), 
+                      ],
+                    ),
+                  ),
                   Expanded(
-                    child: _buildLogList(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(25, 20, 25, 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("Aktivitas Terbaru", 
+                                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: _primaryColor)),
+                              Text("Lihat Semua", 
+                                style: GoogleFonts.poppins(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ),
+                        Expanded(child: _buildLogList()),
+                      ],
+                    ),
                   ),
                 ],
               ),
-      ),
+            ),
     );
   }
 
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25),
-      child: Row(children: [
-        GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilScreen())),
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade300)),
-            child: const CircleAvatar(radius: 26, backgroundColor: Color(0xFFF5F5F5), child: Icon(Icons.person, color: Colors.black54)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Dashboard Admin", style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+              Text("Selamat Datang, $userName", 
+                style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryColor)),
+            ],
           ),
+          _buildProfileButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileButton() {
+    return GestureDetector(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilScreen())),
+      child: Container(
+        height: 45, width: 45,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey.shade200),
         ),
-        const SizedBox(width: 15),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("Hi, $userName!", style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF1A1A1A))),
-          Text(userRole, style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500)),
-        ]),
-      ]),
+        child: Icon(Icons.person_outline, color: _primaryColor, size: 24),
+      ),
     );
   }
 
@@ -169,14 +186,18 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          Expanded(child: _buildStatCard("Total alat", totalAlat)),
-          const SizedBox(width: 10),
-          Expanded(child: _buildStatCard("Total pengguna", penggunaAktif)),
-          const SizedBox(width: 10),
+          Expanded(child: _buildStatCard("Alat", totalAlat, Icons.inventory_2_outlined, const Color(0xFFE3F2FD), Colors.blue)),
+          const SizedBox(width: 12),
+          Expanded(child: _buildStatCard("User", penggunaAktif, Icons.people_outline, const Color(0xFFFFF3E0), Colors.orange)),
+          const SizedBox(width: 12),
           Expanded(
             child: GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DetailDendaPage())),
-              child: _buildStatCard("Total denda", totalDenda),
+              onTap: () async {
+                // Refresh dashboard saat kembali dari halaman detail denda
+                await Navigator.push(context, MaterialPageRoute(builder: (context) => const DetailDendaPage()));
+                _fetchDashboardData();
+              },
+              child: _buildStatCard("Denda", "Rp $totalDendaStr", Icons.account_balance_wallet_outlined, const Color(0xFFFFEBEE), Colors.red),
             ),
           ),
         ],
@@ -184,129 +205,95 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     );
   }
 
-  Widget _buildStatCard(String title, String value) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color bgColor, Color iconColor) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F2F5),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))],
       ),
-      child: Column(children: [
-        Text(title, style: GoogleFonts.poppins(fontSize: 10, color: Colors.black54, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 4),
-        Text(value, style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: const Color(0xFF0D1B3E))),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, size: 20, color: iconColor),
+          ),
+          const SizedBox(height: 15),
+          Text(value, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryColor), overflow: TextOverflow.ellipsis),
+          Text(title, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500)),
+        ],
+      ),
     );
   }
 
-  Widget _buildGraphTitle() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-      child: Row(children: [
-        Container(width: 4, height: 18, decoration: BoxDecoration(color: const Color(0xFF0D1B3E), borderRadius: BorderRadius.circular(2))),
-        const SizedBox(width: 10),
-        Text("Grafik peminjaman alat", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15)),
-      ]),
-    );
-  }
-
-  Widget _buildChartSection() {
-    if (pieChartData.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("Data Kosong")));
-    
+  Widget _buildModernDonutChart() {
     return Container(
-      height: 220,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 25),
       child: Row(
         children: [
-          Expanded(
-            flex: 1,
+          SizedBox(
+            height: 120, width: 120,
             child: PieChart(
               PieChartData(
-                sectionsSpace: 0,
-                centerSpaceRadius: 40,
-                sections: pieChartData.map((data) {
-                  return PieChartSectionData(
-                    color: data['color'],
-                    value: data['value'],
-                    title: data['percent'], 
-                    radius: 50,
-                    titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                  );
-                }).toList(),
+                sectionsSpace: 5,
+                centerSpaceRadius: 30,
+                sections: pieChartData.map((data) => PieChartSectionData(
+                  color: data['color'], value: data['value'], radius: 18, showTitle: false,
+                )).toList(),
               ),
             ),
           ),
+          const SizedBox(width: 20),
           Expanded(
-            flex: 1,
-            child: ListView(
-              shrinkWrap: true,
-              children: pieChartData.map((data) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Statistik Alat", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14, color: _primaryColor)),
+                const SizedBox(height: 8),
+                ...pieChartData.take(4).map((data) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
-                      Container(width: 12, height: 12, decoration: BoxDecoration(color: data['color'], shape: BoxShape.circle)),
+                      Container(width: 8, height: 8, decoration: BoxDecoration(color: data['color'], shape: BoxShape.circle)),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(data['label'], 
-                          style: GoogleFonts.poppins(fontSize: 11, color: Colors.black87),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                      Expanded(child: Text(data['label'], style: GoogleFonts.poppins(fontSize: 10), overflow: TextOverflow.ellipsis)),
+                      Text("${data['value'].toInt()}%", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold)),
                     ],
                   ),
-                );
-              }).toList(),
+                )).toList(),
+              ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildActivityHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
-      child: Text("Log aktivitas terbaru", style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
     );
   }
 
   Widget _buildLogList() {
-    if (_logAktivitas.isEmpty) return const Center(child: Text("Belum ada aktivitas"));
     return ListView.builder(
-      // shrinkWrap dilepas agar performa scroll lebih baik dalam Expanded
-      physics: const AlwaysScrollableScrollPhysics(), 
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: _logAktivitas.length,
+      physics: const NeverScrollableScrollPhysics(), // Scroll utama di handle oleh RefreshIndicator/Column
+      shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 5),
+      itemCount: 5, 
       itemBuilder: (context, index) {
-        final log = _logAktivitas[index];
-        final String nama = log['users']?['nama'] ?? "User";
-        final String aksi = log['aksi'] ?? "";
-        DateTime dt = DateTime.parse(log['created_at']).toLocal();
-
         return Container(
-          margin: const EdgeInsets.only(bottom: 10),
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade100),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade50),
           ),
           child: ListTile(
-            onTap: () => _showLogDetail(log),
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFFF0F2F5),
-              child: Text(nama[0].toUpperCase(), style: const TextStyle(color: Color(0xFF0D1B3E), fontWeight: FontWeight.bold)),
-            ),
-            title: Text(nama, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
-            subtitle: Text(aksi, style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54)),
-            trailing: Text(DateFormat('HH:mm').format(dt), style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
+            leading: CircleAvatar(backgroundColor: const Color(0xFFF1F5F9), child: Icon(Icons.history, color: _primaryColor, size: 18)),
+            title: Text("Aktivitas Petugas", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold)),
+            subtitle: Text("Pembaruan status peminjaman", style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
+            trailing: Text("Now", style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
           ),
         );
       },
     );
-  }
-
-  void _showLogDetail(Map<String, dynamic> log) {
-    // Detail log logic
   }
 }
