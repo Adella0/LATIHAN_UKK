@@ -30,8 +30,8 @@ class _MainNavPeminjamState extends State<MainNavPeminjam> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(30),
-            topRight: Radius.circular(30),
+            topLeft: Radius.circular(40),
+            topRight: Radius.circular(40),
           ),
           boxShadow: [
             BoxShadow(

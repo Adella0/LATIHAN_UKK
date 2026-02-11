@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:fl_chart/fl_chart.dart'; // Import untuk Pie Chart
 import '../ui/profil.dart';
-
-// Pastikan import ProfilScreen sudah benar sesuai struktur folder kamu
-// import 'profil_screen.dart'; 
 
 class DashboardPetugasScreen extends StatefulWidget {
   const DashboardPetugasScreen({super.key});
@@ -18,177 +16,75 @@ class _DashboardPetugasScreenState extends State<DashboardPetugasScreen> {
   String userRole = "...";
   bool isLoading = true;
 
+  // Variabel Warna Utama
+  final Color _primaryDark = const Color(0xFF02182F);
+  final Color _accentBlue = const Color(0xFF3498DB);
+  final Color _bgLight = const Color(0xFFF8FAFC);
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
   }
 
- Future<void> _loadUserData() async {
-  try {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user != null) {
-      final data = await Supabase.instance.client
-          .from('users')
-          .select('nama, role') // Pastikan nama kolom di DB adalah 'nama' sesuai screenshot ERD
-          .eq('id_user', user.id)
-          .single();
+  Future<void> _loadUserData() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final data = await Supabase.instance.client
+            .from('users')
+            .select('nama, role')
+            .eq('id_user', user.id)
+            .single();
 
-      setState(() {
-        // Logika: Gunakan 'nama' dari DB, jika null/kosong ambil dari email
-        String fullNama = data['nama'] ?? "";
-        
-        if (fullNama.isEmpty) {
-          // Ambil bagian depan email sebelum @
-          userName = user.email!.split('@')[0];
-        } else {
-          userName = fullNama;
-        }
-
-        String roleRaw = data['role'] ?? "petugas";
-        userRole = roleRaw[0].toUpperCase() + roleRaw.substring(1);
-        isLoading = false;
-      });
+        setState(() {
+          userName = data['nama'] ?? user.email!.split('@')[0];
+          String roleRaw = data['role'] ?? "petugas";
+          userRole = roleRaw[0].toUpperCase() + roleRaw.substring(1);
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
     }
-  } catch (e) {
-    // Jika error (misal user belum ada di tabel 'users'), ambil dari email sebagai fallback
-    final user = Supabase.instance.client.auth.currentUser;
-    setState(() {
-      userName = user?.email?.split('@')[0] ?? "User";
-      userRole = "Petugas";
-      isLoading = false;
-    });
   }
-}
-
-Widget _buildHeader() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 25),
-    child: Row(
-      children: [
-        GestureDetector(
-          onTap: () {
-            // Berpindah ke halaman profil.dart
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilScreen()),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: const CircleAvatar(
-              radius: 26,
-              backgroundColor: Color(0xFFF5F5F5),
-              child: Icon(Icons.person, color: Colors.black54),
-            ),
-          ),
-        ),
-        const SizedBox(width: 15),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Hi, $userName!",
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF1A1A1A),
-              ),
-            ),
-            Text(
-              userRole,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryBlue = Color(0xFF02182F);
-    const Color softGrey = Color(0xFFD9E0E6);
-
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _bgLight,
       body: SafeArea(
         child: isLoading
-            ? const Center(child: CircularProgressIndicator(color: primaryBlue))
+            ? Center(child: CircularProgressIndicator(color: _primaryDark))
             : SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 25),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 30),
-                    
-                    // Memanggil Header yang baru
                     _buildHeader(),
+                    const SizedBox(height: 35),
                     
-                    const SizedBox(height: 40),
+                    // Card Statistik Utama (Pie Chart)
+                    _buildStatCard(),
 
-                    // Konten Utama
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 25),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Grafik Section
-                          Row(
-                            children: [
-                              Container(
-                                width: 20,
-                                height: 20,
-                                decoration: BoxDecoration(
-                                  color: primaryBlue,
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                "Grafik alat paling sering dipinjam",
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 30),
-                          _buildChartSection(primaryBlue, softGrey),
-                          
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 25),
-                            child: Divider(color: Colors.black12, thickness: 1.5),
-                          ),
+                    const SizedBox(height: 35),
 
-                          // Alat yang sedang dipinjam Section
-                          _buildSectionHeader("Alat yang sedang dipinjam"),
-                          const SizedBox(height: 15),
-                          _buildToolItem("Proyektor", "Elektronik", "1", primaryBlue),
-                          _buildToolItem("Gitar", "Alat musik", "1", primaryBlue),
+                    // Section: Alat yang sedang dipinjam
+                    _buildSectionTitle("Sedang Dipinjam"),
+                    const SizedBox(height: 15),
+                    _buildToolItem("Proyektor Epson", "Elektronik", "2"),
+                    _buildToolItem("Gitar Yamaha", "Alat Musik", "1"),
 
-                          const SizedBox(height: 30),
+                    const SizedBox(height: 30),
 
-                          // Daftar alat segera dikembalikan Section
-                          _buildSectionHeader("Daftar alat segera dikembalikan"),
-                          const SizedBox(height: 15),
-                          _buildToolItem("Proyektor", "Elektronik", "1", primaryBlue),
-                          _buildToolItem("Gitar", "Alat musik", "1", primaryBlue),
-
-                          const SizedBox(height: 120),
-                        ],
-                      ),
-                    ),
+                    // Section: Segera Dikembalikan
+                    _buildSectionTitle("Segera Dikembalikan"),
+                    const SizedBox(height: 15),
+                    _buildToolItem("Kamera Canon", "Dokumentasi", "1"),
+                    
+                    const SizedBox(height: 100), // Spasi bawah agar tidak tertutup navbar
                   ],
                 ),
               ),
@@ -196,100 +92,84 @@ Widget _buildHeader() {
     );
   }
 
-  // --- Widget Helper tetap sama ---
-  Widget _buildSectionHeader(String title) {
+  Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.bold)),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFD9E0E6),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              Text("Detail", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
-              const SizedBox(width: 4),
-              const Icon(Icons.arrow_forward_ios, size: 10),
-            ],
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Selamat Bekerja,",
+              style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[600]),
+            ),
+            Text(
+              userName,
+              style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: _primaryDark),
+            ),
+          ],
+        ),
+        GestureDetector(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilScreen())),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+            ),
+            child: CircleAvatar(
+              radius: 25,
+              backgroundColor: _primaryDark,
+              child: const Icon(Icons.person_rounded, color: Colors.white),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildToolItem(String name, String category, String unit, Color primaryBlue) {
+  Widget _buildStatCard() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5)),
-        ],
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: const Icon(Icons.image, size: 40, color: Colors.grey),
-            ),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Text("Paling Sering Dipinjam", 
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15, color: _primaryDark)),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 180,
+            child: Row(
               children: [
-                Text(name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15)),
-                Text(category, style: GoogleFonts.poppins(color: primaryBlue, fontSize: 11, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          Text("($unit) unit", style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: primaryBlue)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChartSection(Color blue, Color grey) {
-    return SizedBox(
-      height: 200,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          RotatedBox(
-            quarterTurns: 3,
-            child: Text("( Jumlah alat )", style: GoogleFonts.poppins(fontSize: 10, color: Colors.black87)),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Stack(
-              children: [
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(5, (index) => _buildYAxisLine((200 - (index * 50)).toString())),
+                Expanded(
+                  flex: 1,
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 35,
+                      sections: [
+                        PieChartSectionData(value: 40, color: _primaryDark, radius: 15, showTitle: false),
+                        PieChartSectionData(value: 25, color: _accentBlue, radius: 15, showTitle: false),
+                        PieChartSectionData(value: 20, color: const Color(0xFF1ED72D), radius: 15, showTitle: false),
+                        PieChartSectionData(value: 15, color: Colors.orange, radius: 15, showTitle: false),
+                      ],
+                    ),
+                  ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 35, bottom: 25),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildBar("Proyektor", 160, blue),
-                      _buildBar("Tv", 150, grey),
-                      _buildBar("Bola", 130, blue),
-                      _buildBar("Remot", 90, grey),
-                      _buildBar("Meja", 70, blue),
+                      _buildChartLegend(_primaryDark, "Proyektor"),
+                      _buildChartLegend(_accentBlue, "TV"),
+                      _buildChartLegend(const Color(0xFF1ED72D), "Bola"),
+                      _buildChartLegend(Colors.orange, "Lainnya"),
                     ],
                   ),
                 ),
@@ -301,30 +181,62 @@ Widget _buildHeader() {
     );
   }
 
-  Widget _buildYAxisLine(String val) {
+  Widget _buildChartLegend(Color color, String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 10),
+          Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        SizedBox(width: 30, child: Text(val, style: GoogleFonts.poppins(fontSize: 11))),
-        const Expanded(child: Divider(color: Colors.black12, thickness: 1)),
+        Text(title, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: _primaryDark)),
+        Text("Lihat Semua", style: GoogleFonts.poppins(fontSize: 12, color: _accentBlue, fontWeight: FontWeight.w600)),
       ],
     );
   }
 
-  Widget _buildBar(String label, double height, Color color) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Container(
-          width: 20,
-          height: height,
-          decoration: BoxDecoration(
-            color: color, 
-            borderRadius: BorderRadius.circular(4),
+  Widget _buildToolItem(String name, String category, String unit) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 55, height: 55,
+            decoration: BoxDecoration(color: _bgLight, borderRadius: BorderRadius.circular(15)),
+            child: Icon(Icons.inventory_2_outlined, color: _primaryDark, size: 28),
           ),
-        ),
-        const SizedBox(height: 5),
-        Text(label, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold)),
-      ],
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text(category, style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11)),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(color: _primaryDark.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+            child: Text("$unit Unit", style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: _primaryDark)),
+          ),
+        ],
+      ),
     );
   }
 }

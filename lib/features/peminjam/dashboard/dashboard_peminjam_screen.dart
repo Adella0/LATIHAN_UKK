@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 import '../dashboard/keranjang.dart';
 import '../ui/profil.dart';
 
@@ -17,55 +18,46 @@ class _DashboardPeminjamScreenState extends State<DashboardPeminjamScreen> {
   List<Map<String, dynamic>> categories = [];
   Map<String, dynamic>? userData;
   bool isLoading = true;
-  
-  // ID Alat sebagai Key, Jumlah sebagai Value
-  Map<int, int> cartItems = {}; 
+
+  // Variabel Warna
+  final Color _primaryDark = const Color(0xFF02182F);
+  final Color _accentGreen = const Color(0xFF1ED72D);
+  final Color _errorRed = const Color(0xFFE52121);
+  final Color _bgLight = const Color(0xFFF4F7FA);
+
+  Map<int, int> cartItems = {};
   late Future<List<dynamic>> _alatFuture;
 
-  // Menghitung total unit dari semua alat yang ada di keranjang
   int get cartCount {
     int total = 0;
     cartItems.forEach((id, qty) => total += qty);
     return total;
   }
 
- @override
-void initState() {
-  super.initState();
-  // Selalu jalankan ini untuk memastikan data sinkron dengan session aktif
-  _loadUserData(); 
-  _fetchInitialData();
-  _alatFuture = _getAlatData(); 
-}
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+    _fetchInitialData();
+    _alatFuture = _getAlatData();
+  }
 
   Future<List<dynamic>> _getAlatData() async {
     final data = await supabase.from('alat').select('*, kategori(nama_kategori)').order('id_alat');
     return data as List<dynamic>;
   }
 
- Future<void> _loadUserData() async {
-  // 1. Ambil user yang sedang aktif login saat ini
-  final user = supabase.auth.currentUser;
-
-  if (user != null) {
-    try {
-      // 2. Query ke tabel users BERDASARKAN id_user yang sedang login
-      final data = await supabase
-          .from('users')
-          .select()
-          .eq('id_user', user.id) // Pastikan filter ini menggunakan ID user aktif
-          .maybeSingle(); // Menggunakan maybeSingle lebih aman daripada single
-
-      if (data != null) {
-        setState(() {
-          userData = data;
-        });
+  Future<void> _loadUserData() async {
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      try {
+        final data = await supabase.from('users').select().eq('id_user', user.id).maybeSingle();
+        if (data != null) setState(() => userData = data);
+      } catch (e) {
+        debugPrint("Error loading user data: $e");
       }
-    } catch (e) {
-      debugPrint("Error loading user data: $e");
     }
   }
-}
 
   Future<void> _fetchInitialData() async {
     try {
@@ -86,14 +78,17 @@ void initState() {
         cartItems[idAlat] = currentQty + 1;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Berhasil menambah 1 unit"),
-          duration: Duration(milliseconds: 500),
+        SnackBar(
+          content: Text("Berhasil menambah 1 unit", style: GoogleFonts.poppins(fontSize: 12)),
+          duration: const Duration(milliseconds: 600),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: _primaryDark,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Batas stok tercapai")),
+        const SnackBar(content: Text("Batas stok tercapai"), backgroundColor: Colors.red),
       );
     }
   }
@@ -101,7 +96,7 @@ void initState() {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _bgLight,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,10 +123,17 @@ void initState() {
         children: [
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilScreen())),
-            child: const CircleAvatar(
-              radius: 28,
-              backgroundColor: Color(0xFF424242),
-              child: Icon(Icons.person, size: 38, color: Colors.white),
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+              ),
+              child: const CircleAvatar(
+                radius: 28,
+                backgroundColor: Color(0xFF424242),
+                child: Icon(Icons.person_rounded, size: 35, color: Colors.white),
+              ),
             ),
           ),
           const SizedBox(width: 15),
@@ -140,11 +142,11 @@ void initState() {
             children: [
               Text(
                 "Hi, ${userData?['nama'] ?? 'User'}!",
-                style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF02182F)),
+                style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryDark),
               ),
               Text(
                 userData?['role'] ?? 'Peminjam',
-                style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
+                style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -157,15 +159,19 @@ void initState() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25),
       child: Container(
-        height: 50,
-        decoration: BoxDecoration(color: const Color(0xFFD1D8E0), borderRadius: BorderRadius.circular(25)),
+        height: 55,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))],
+        ),
         child: TextField(
           decoration: InputDecoration(
-            hintText: "Cari...",
-            hintStyle: GoogleFonts.poppins(color: Colors.black54),
-            prefixIcon: const Icon(Icons.search, color: Colors.black87),
+            hintText: "Cari alat praktikum...",
+            hintStyle: GoogleFonts.poppins(color: Colors.grey[400], fontSize: 14),
+            prefixIcon: Icon(Icons.search_rounded, color: _primaryDark),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(vertical: 17),
           ),
         ),
       ),
@@ -174,7 +180,7 @@ void initState() {
 
   Widget _buildCategoryList() {
     return SizedBox(
-      height: 40,
+      height: 45,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -184,20 +190,22 @@ void initState() {
           bool isSelected = selectedKategori == name;
           return GestureDetector(
             onTap: () => setState(() => selectedKategori = name),
-            child: Container(
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 22),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF02182F) : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF02182F)),
+                color: isSelected ? _primaryDark : Colors.white,
+                borderRadius: BorderRadius.circular(25),
+                boxShadow: isSelected ? [BoxShadow(color: _primaryDark.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
+                border: Border.all(color: isSelected ? _primaryDark : Colors.transparent),
               ),
               child: Text(
                 name,
                 style: GoogleFonts.poppins(
-                  color: isSelected ? Colors.white : const Color(0xFF02182F),
-                  fontWeight: FontWeight.w600,
+                  color: isSelected ? Colors.white : _primaryDark,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   fontSize: 13,
                 ),
               ),
@@ -212,7 +220,7 @@ void initState() {
     return FutureBuilder(
       future: _alatFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator(color: _primaryDark));
         final dataAlat = snapshot.data as List<dynamic>? ?? [];
         final filteredAlat = selectedKategori == "All"
             ? dataAlat
@@ -222,9 +230,9 @@ void initState() {
           padding: const EdgeInsets.all(25),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 0.8,
-            crossAxisSpacing: 15,
-            mainAxisSpacing: 15,
+            childAspectRatio: 0.78,
+            crossAxisSpacing: 18,
+            mainAxisSpacing: 18,
           ),
           itemCount: filteredAlat.length,
           itemBuilder: (context, index) => _buildAlatCard(filteredAlat[index]),
@@ -237,12 +245,13 @@ void initState() {
     final int stok = item['stok_total'] ?? 0;
     final bool isAvailable = stok > 0;
     final String kategoriName = item['kategori']?['nama_kategori'] ?? "Umum";
+    final int countInCart = cartItems[item['id_alat']] ?? 0;
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 8))],
       ),
       child: Stack(
         children: [
@@ -250,34 +259,42 @@ void initState() {
             children: [
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(15),
-                  child: item['foto_url'] != null
-                      ? Image.network(item['foto_url'], fit: BoxFit.contain)
-                      : const Icon(Icons.image_not_supported, size: 50),
+                  padding: const EdgeInsets.all(12),
+                  child: Center(
+                    child: item['foto_url'] != null
+                        ? Image.network(item['foto_url'], fit: BoxFit.contain)
+                        : Icon(Icons.inventory_2_outlined, size: 50, color: Colors.grey[300]),
+                  ),
                 ),
               ),
               _buildCardFooter(item, isAvailable),
             ],
           ),
-          // Icon Plus dengan Badge Angka
+          // Icon Plus dengan Badge (Struktur Kamu)
           Positioned(
-            top: 10,
-            left: 10,
+            top: 12,
+            left: 12,
             child: GestureDetector(
               onTap: () => _addToCart(item['id_alat'], stok),
               child: Stack(
                 alignment: Alignment.topRight,
                 children: [
-                  Icon(
-                    Icons.add_circle,
-                    color: cartItems.containsKey(item['id_alat']) ? const Color(0xFF1ED72D) : const Color(0xFF02182F),
-                    size: 30,
+                  Container(
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: Icon(
+                      Icons.add_circle,
+                      color: countInCart > 0 ? _accentGreen : _primaryDark,
+                      size: 32,
+                    ),
                   ),
-                  if ((cartItems[item['id_alat']] ?? 0) > 0)
-                    CircleAvatar(
-                      radius: 8,
-                      backgroundColor: Colors.red,
-                      child: Text(cartItems[item['id_alat']].toString(), style: const TextStyle(fontSize: 9, color: Colors.white)),
+                  if (countInCart > 0)
+                    Transform.translate(
+                      offset: const Offset(2, -2),
+                      child: CircleAvatar(
+                        radius: 9,
+                        backgroundColor: Colors.red,
+                        child: Text(countInCart.toString(), style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
                     ),
                 ],
               ),
@@ -285,12 +302,18 @@ void initState() {
           ),
           // Label Kategori (Pojok Kanan Atas)
           Positioned(
-            top: 10,
-            right: 10,
+            top: 12,
+            right: 12,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: const Color(0xFF02182F), borderRadius: BorderRadius.circular(5)),
-              child: Text(kategoriName, style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: _primaryDark.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                kategoriName,
+                style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              ),
             ),
           ),
         ],
@@ -300,32 +323,36 @@ void initState() {
 
   Widget _buildCardFooter(dynamic item, bool isAvailable) {
     return Padding(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Stok : ${item['stok_total']} unit", style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold)),
+              Text("Stok: ${item['stok_total']}", style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey[700])),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isAvailable ? const Color(0xFF1ED72D) : const Color(0xFFE52121),
-                  borderRadius: BorderRadius.circular(5),
+                  color: isAvailable ? _accentGreen.withOpacity(0.15) : _errorRed.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   isAvailable ? "TERSEDIA" : "KOSONG",
-                  style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: isAvailable ? _accentGreen : _errorRed, fontSize: 7, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(color: const Color(0xFF02182F), borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: _primaryDark,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [BoxShadow(color: _primaryDark.withOpacity(0.2), blurRadius: 5, offset: const Offset(0, 3))],
+            ),
             child: Text(
               item['nama_alat'] ?? "",
               textAlign: TextAlign.center,
@@ -341,31 +368,31 @@ void initState() {
 
   Widget _buildCartFab() {
     return FloatingActionButton.extended(
-     onPressed: () async {
-      // Tunggu hasil (result) dari halaman keranjang
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const KeranjangScreen(),
-          settings: RouteSettings(arguments: cartItems),
-        ),
-      );
-
-      // Jika result tidak null (berarti user menekan tombol kembali/pop dengan data)
-      if (result != null && result is Map<int, int>) {
-        setState(() {
-          // UPDATE cartItems di dashboard dengan data terbaru dari keranjang
-          cartItems = result;
-        });
-      }
-    },
-      backgroundColor: const Color(0xFF02182F),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      onPressed: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const KeranjangScreen(),
+            settings: RouteSettings(arguments: cartItems),
+          ),
+        );
+        if (result != null && result is Map<int, int>) {
+          setState(() {
+            cartItems = result;
+          });
+        }
+      },
+      backgroundColor: _primaryDark,
+      elevation: 5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       label: Row(
         children: [
-          const Icon(Icons.shopping_cart, color: Colors.white),
-          const SizedBox(width: 8),
-          Text("($cartCount) unit", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+          const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 20),
+          const SizedBox(width: 10),
+          Text(
+            "$cartCount Unit",
+            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+          ),
         ],
       ),
     );

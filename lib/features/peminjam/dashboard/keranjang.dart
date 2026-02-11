@@ -20,15 +20,19 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
   Map<int, int> cartItems = {};
   List<dynamic> detailAlat = [];
   bool isLoading = true;
-  
-  // Variabel untuk validasi status pending
   bool isPending = false; 
+
+  // Variabel Warna Sesuai Request & UI Modern
+  final Color _primaryDark = const Color(0xFF02182F);
+  final Color _softGrey = const Color(0xFFC9D0D6);
+  final Color _mediumGrey = const Color(0xFF8F8E90);
+  final Color _accentBlue = const Color(0xFF3A7BD5);
 
   @override
   void initState() {
     super.initState();
     _checkExistingLoan();
-    _loadUserFullname(); // Ambil nama otomatis saat init
+    _loadUserFullname();
   }
 
   @override
@@ -41,36 +45,32 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
     }
   }
 
-  // FUNGSI AMBIL NAMA DARI AKUN LOGIN
- Future<void> _loadUserFullname() async {
-  final user = supabase.auth.currentUser;
-  if (user != null) {
-    try {
-      // Ambil data nama langsung dari tabel 'users' berdasarkan id_user
-      final userData = await supabase
-          .from('users')
-          .select('nama')
-          .eq('id_user', user.id)
-          .maybeSingle();
+  Future<void> _loadUserFullname() async {
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      try {
+        final userData = await supabase
+            .from('users')
+            .select('nama')
+            .eq('id_user', user.id)
+            .maybeSingle();
 
-      if (userData != null && userData['nama'] != null) {
-        setState(() {
-          _namaController.text = userData['nama'];
-        });
-      } else {
-        // Jika di tabel users tidak ada, baru cek metadata
-        final String? metaNama = user.userMetadata?['nama'] ?? user.userMetadata?['full_name'];
-        setState(() {
-          _namaController.text = metaNama ?? "Peminjam Terdaftar";
-        });
+        if (userData != null && userData['nama'] != null) {
+          setState(() {
+            _namaController.text = userData['nama'];
+          });
+        } else {
+          final String? metaNama = user.userMetadata?['nama'] ?? user.userMetadata?['full_name'];
+          setState(() {
+            _namaController.text = metaNama ?? "Peminjam Terdaftar";
+          });
+        }
+      } catch (e) {
+        debugPrint("Error loading name: $e");
       }
-    } catch (e) {
-      debugPrint("Error loading name: $e");
     }
   }
-}
 
-  // FUNGSI CEK APAKAH ADA PINJAMAN YANG BELUM DI-ACC
   Future<void> _checkExistingLoan() async {
     try {
       final user = supabase.auth.currentUser;
@@ -79,14 +79,12 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
       final data = await supabase
           .from('peminjaman')
           .select()
-          .eq('peminjam_id', user.id) // Sesuaikan dengan nama kolom FK di DB kamu
+          .eq('peminjam_id', user.id)
           .eq('status_transaksi', 'pending')
           .maybeSingle();
 
       if (data != null) {
-        setState(() {
-          isPending = true;
-        });
+        setState(() => isPending = true);
       }
     } catch (e) {
       debugPrint("Error checking status: $e");
@@ -130,7 +128,6 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
 
   Future<void> _ajukanPinjaman() async {
     if (isPending) return;
-
     if (tglPengambilan == null || tglTenggat == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Mohon lengkapi tanggal pengambilan & tenggat!")),
@@ -143,7 +140,6 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
       final user = supabase.auth.currentUser;
       if (user == null) return;
 
-      // 1. INSERT KE TABEL PEMINJAMAN
       final peminjamanResponse = await supabase.from('peminjaman').insert({
         'peminjam_id': user.id,
         'pengambilan': tglPengambilan!.toIso8601String(),
@@ -152,8 +148,6 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
       }).select().single();
 
       final int idPeminjaman = peminjamanResponse['id_pinjam'];
-
-      // 2. INSERT KE TABEL DETAIL_PEMINJAMAN
       final List<Map<String, dynamic>> detailData = [];
       cartItems.forEach((idAlat, qty) {
         detailData.add({
@@ -164,8 +158,6 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
       });
 
       await supabase.from('detail_peminjaman').insert(detailData);
-
-      // 3. LOG AKTIVITAS
       await supabase.from('log_aktivitas').insert({
         'user_id': user.id,
         'aksi': 'Pengajuan Pinjaman',
@@ -174,15 +166,14 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Berhasil! Menunggu konfirmasi petugas"), backgroundColor: Colors.green),
+          const SnackBar(content: Text("Berhasil! Menunggu konfirmasi"), backgroundColor: Colors.green),
         );
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
-      debugPrint("Error simpan transaksi: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal mengajukan: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text("Gagal: $e"), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -193,70 +184,79 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF02182F)),
+          icon: Icon(Icons.arrow_back_ios_new, color: _primaryDark, size: 20),
           onPressed: () => Navigator.pop(context, cartItems),
         ),
-        title: Text("Form Pengajuan", style: GoogleFonts.poppins(color: const Color(0xFF02182F), fontWeight: FontWeight.bold)),
+        title: Text("Konfirmasi Pinjaman", 
+          style: GoogleFonts.poppins(color: _primaryDark, fontWeight: FontWeight.bold, fontSize: 18)),
       ),
       body: isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF02182F)))
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(25),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Warning jika ada status pending
-                if (isPending) _buildPendingAlert(),
+        ? Center(child: CircularProgressIndicator(color: _primaryDark))
+        : Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 25),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isPending) _buildPendingAlert(),
+                      
+                      _buildSectionHeader("Informasi Peminjam"),
+                      _buildInfoCard(),
 
-                _buildLabel("Nama Peminjam (Otomatis)"),
-                _buildTextField(_namaController, "Memuat nama...", enabled: false), 
+                      const SizedBox(height: 25),
+                      _buildSectionHeader("Durasi Peminjaman"),
+                      _buildDateTimeSection(),
 
-                const SizedBox(height: 15),
-                _buildLabel("Jumlah Total"),
-                _buildTextField(TextEditingController(text: "$totalUnit unit"), "", enabled: false),
+                      const SizedBox(height: 25),
+                      _buildSectionHeader("Daftar Inventaris"),
+                      ...detailAlat.map((item) => _buildItemCard(item)).toList(),
 
-                const SizedBox(height: 20),
-                _buildDateTimeSection(),
-
-                const SizedBox(height: 25),
-                _buildLabel("Daftar Alat di Keranjang:"),
-                ...detailAlat.map((item) => _buildItemCard(item)).toList(),
-
-                const SizedBox(height: 15),
-                if (!isPending) _buildAddMoreButton(),
-
-                const SizedBox(height: 40),
-                _buildSubmitButton(),
-              ],
-            ),
+                      if (!isPending) _buildAddMoreButton(),
+                      const SizedBox(height: 30),
+                    ],
+                  ),
+                ),
+              ),
+              _buildBottomAction(),
+            ],
           ),
     );
   }
 
-  // --- WIDGET HELPERS ---
+  // --- UI COMPONENTS ---
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 4),
+      child: Text(title, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: _primaryDark)),
+    );
+  }
 
   Widget _buildPendingAlert() {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.shade300),
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.amber.shade200),
       ),
       child: Row(
         children: [
-          const Icon(Icons.hourglass_empty, color: Colors.orange),
-          const SizedBox(width: 10),
+          Icon(Icons.error_outline, color: Colors.amber.shade900),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
-              "Anda masih memiliki pengajuan pending. Selesaikan atau tunggu konfirmasi petugas.",
-              style: GoogleFonts.poppins(fontSize: 11, color: Colors.orange.shade900),
+              "Anda memiliki pengajuan yang masih diproses.",
+              style: GoogleFonts.poppins(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -264,76 +264,88 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
     );
   }
 
-  Widget _buildLabel(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(text, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
-  );
-
-  Widget _buildTextField(TextEditingController controller, String hint, {bool enabled = true}) {
-    return TextField(
-      controller: controller,
-      enabled: enabled,
-      style: GoogleFonts.poppins(fontSize: 14),
-      decoration: InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: enabled ? Colors.white : Colors.grey.shade100,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+  Widget _buildInfoCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
+      child: Column(
+        children: [
+          _buildInfoRow(Icons.person_outline, "Nama", _namaController.text),
+          const Divider(height: 24),
+          _buildInfoRow(Icons.shopping_bag_outlined, "Total Unit", "$totalUnit Alat"),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: _softGrey.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, size: 18, color: _primaryDark),
+        ),
+        const SizedBox(width: 15),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: GoogleFonts.poppins(fontSize: 11, color: _mediumGrey)),
+            Text(value, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: _primaryDark)),
+          ],
+        )
+      ],
     );
   }
 
   Widget _buildDateTimeSection() {
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(15),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
-          _buildDateColumn("Pengambilan", tglPengambilan, (val) => setState(() => tglPengambilan = val)),
-          const SizedBox(width: 10),
-          _buildDateColumn("Tenggat", tglTenggat, (val) => setState(() => tglTenggat = val)),
+          _buildDateSelector("Pengambilan", tglPengambilan, (val) => setState(() => tglPengambilan = val)),
+          Container(height: 40, width: 1, color: _softGrey.withOpacity(0.5)),
+          _buildDateSelector("Tenggat", tglTenggat, (val) => setState(() => tglTenggat = val)),
         ],
       ),
     );
   }
 
-  Widget _buildDateColumn(String label, DateTime? date, Function(DateTime) onSelect) {
+  Widget _buildDateSelector(String label, DateTime? date, Function(DateTime) onSelect) {
     return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 5),
-          GestureDetector(
-            onTap: isPending ? null : () async {
-              DateTime? picked = await showDatePicker(
-                context: context, 
-                initialDate: DateTime.now(), 
-                firstDate: DateTime.now(), 
-                lastDate: DateTime(2100)
-              );
-              if (picked != null) onSelect(picked);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_month, size: 14, color: Color(0xFF02182F)),
-                  const SizedBox(width: 5),
-                  Text(
-                    date == null ? "Pilih Tgl" : DateFormat('dd/MM/yyyy').format(date), 
-                    style: GoogleFonts.poppins(fontSize: 10)
-                  ),
-                ],
-              ),
+      child: GestureDetector(
+        onTap: isPending ? null : () async {
+          DateTime? picked = await showDatePicker(
+            context: context, 
+            initialDate: DateTime.now(), 
+            firstDate: DateTime.now(), 
+            lastDate: DateTime(2100),
+            builder: (context, child) => Theme(
+              data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: _primaryDark)),
+              child: child!,
             ),
-          ),
-        ],
+          );
+          if (picked != null) onSelect(picked);
+        },
+        child: Column(
+          children: [
+            Text(label, style: GoogleFonts.poppins(fontSize: 11, color: _mediumGrey)),
+            const SizedBox(height: 4),
+            Text(
+              date == null ? "Pilih Tgl" : DateFormat('dd MMM yyyy').format(date), 
+              style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: _accentBlue)
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -341,34 +353,38 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
   Widget _buildItemCard(dynamic item) {
     int id = item['id_alat'];
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _softGrey.withOpacity(0.3)),
       ),
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(item['foto_url'], width: 45, height: 45, fit: BoxFit.cover, 
-              errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2, size: 30)),
+            borderRadius: BorderRadius.circular(15),
+            child: Image.network(item['foto_url'], width: 60, height: 60, fit: BoxFit.cover, 
+              errorBuilder: (_, __, ___) => Container(color: _softGrey, child: const Icon(Icons.inventory_2))),
           ),
           const SizedBox(width: 15),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item['nama_alat'], style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13)),
-                Text(item['kategori']['nama_kategori'], style: GoogleFonts.poppins(fontSize: 10, color: Colors.blue)),
+                Text(item['nama_alat'], style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 14, color: _primaryDark)),
+                Text(item['kategori']['nama_kategori'], style: GoogleFonts.poppins(fontSize: 11, color: _mediumGrey)),
               ],
             ),
           ),
-          Text("${cartItems[id]} unit", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(color: _primaryDark.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+            child: Text("${cartItems[id]}x", style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: _primaryDark)),
+          ),
           if (!isPending)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+              icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 22),
               onPressed: () => _removeItem(id),
             )
         ],
@@ -377,34 +393,38 @@ class _KeranjangScreenState extends State<KeranjangScreen> {
   }
 
   Widget _buildAddMoreButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
+    return Center(
+      child: TextButton.icon(
         onPressed: () => Navigator.pop(context, cartItems),
-        icon: const Icon(Icons.add, size: 18),
-        label: const Text("Tambah alat lain"),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF02182F),
-          side: const BorderSide(color: Color(0xFF02182F)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+        icon: const Icon(Icons.add_circle_outline, size: 20),
+        label: Text("Tambah Alat Lagi", style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        style: TextButton.styleFrom(foregroundColor: _accentBlue),
       ),
     );
   }
 
-  Widget _buildSubmitButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: isPending ? null : _ajukanPinjaman,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isPending ? Colors.grey : const Color(0xFF02182F),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        child: Text(
-          isPending ? "PROSES PENDING..." : "AJUKAN PINJAMAN SEKARANG", 
-          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)
+  Widget _buildBottomAction() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(25, 20, 25, 40),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(35)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5))],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 55,
+        child: ElevatedButton(
+          onPressed: isPending ? null : _ajukanPinjaman,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isPending ? _mediumGrey : _primaryDark,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            elevation: 0,
+          ),
+          child: Text(
+            isPending ? "PENGAJUAN SEDANG DIPROSES" : "KIRIM PENGAJUAN", 
+            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)
+          ),
         ),
       ),
     );

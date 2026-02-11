@@ -15,32 +15,27 @@ class DashboardAdminScreen extends StatefulWidget {
 }
 
 class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
-  // Variabel untuk menyimpan data profil dan status loading
   String userName = "";
   String userRole = "";
   bool isLoading = true;
 
-  // Variabel untuk angka statistik di dashboard
   String totalAlat = "0";
   String penggunaAktif = "0";
   String totalDenda = "0";
 
-  // Penampung data untuk grafik dan daftar aktivitas
   List<Map<String, dynamic>> pieChartData = [];
   List<Map<String, dynamic>> _logAktivitas = []; 
 
   @override
   void initState() {
     super.initState();
-    _loadDashboardData(); // Memanggil data saat pertama kali aplikasi dibuka
+    _loadDashboardData();
   }
 
-  // Fungsi utama untuk mengambil semua data dari database Supabase
   Future<void> _loadDashboardData() async {
     try {
       final supabase = Supabase.instance.client;
 
-      // 1. Mengambil data Profil Admin yang sedang login
       final user = supabase.auth.currentUser;
       if (user != null) {
         final res = await supabase.from('users').select().eq('id_user', user.id).maybeSingle();
@@ -50,12 +45,10 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
         }
       }
 
-      // 2. Mengambil Statistik (Jumlah total alat dan pengguna)
       final resAlat = await supabase.from('alat').select('id_alat');
       final resUsers = await supabase.from('users').select('id_user');
       final resDenda = await supabase.from('denda').select('total_denda');
       
-      // Menghitung total nominal denda dari seluruh data di tabel denda
       double totalNominalDenda = 0;
       if (resDenda != null) {
         for (var item in resDenda) {
@@ -63,27 +56,22 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
         }
       }
       
-      // Format tampilan angka denda (menggunakan 'k' jika mencapai ribuan)
       String displayDenda = totalNominalDenda >= 1000 
           ? "${(totalNominalDenda / 1000).toStringAsFixed(0)}k" 
           : totalNominalDenda.toInt().toString();
 
-      // 3. Mengambil data Log Aktivitas terbaru (dibatasi 5 data terakhir)
       final resLog = await supabase.from('log_aktivitas').select('''
           id_log, aksi, keterangan, created_at,
           users:user_id (nama, role)
-        ''').order('created_at', ascending: false).limit(5);
+        ''').order('created_at', ascending: false).limit(10); // Limit ditambah agar scroll terasa
 
-      // 4. Mengambil Data untuk Grafik (Menghitung alat yang paling banyak dipinjam)
       final resChart = await supabase.from('detail_peminjaman').select('jumlah, id_alat');
       final alatRes = await supabase.from('alat').select('id_alat, nama_alat');
       
-      // Memetakan ID alat ke Nama Alat agar mudah ditampilkan
       Map<dynamic, String> mapAlat = { for (var a in alatRes) a['id_alat']: a['nama_alat'].toString() };
       Map<String, double> hasilHitung = {};
       double totalPinjam = 0;
 
-      // Proses akumulasi jumlah peminjaman per alat
       for (var item in resChart) {
         String namaAlat = mapAlat[item['id_alat']] ?? "Alat";
         double jml = double.tryParse(item['jumlah'].toString()) ?? 0;
@@ -91,18 +79,16 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
         totalPinjam += jml;
       }
 
-      // Palette warna grafik sesuai dengan desain profesional (Biru ke Abu-abu)
       List<Color> palette = [
-        const Color(0xFF0D1B3E), // Biru sangat tua
-        const Color(0xFF1A3D8F), // Biru tua
-        const Color(0xFF3A7BD5), // Biru medium
-        const Color(0xFF74ABE2), // Biru muda
-        const Color(0xFFA6C1EE), // Biru pucat
-        const Color(0xFFCBD5E0), // Abu-abu biru
+        const Color(0xFF0D1B3E),
+        const Color(0xFF1A3D8F),
+        const Color(0xFF3A7BD5),
+        const Color(0xFF74ABE2),
+        const Color(0xFFA6C1EE),
+        const Color(0xFFCBD5E0),
       ];
 
       int colorIdx = 0;
-      // Mengonversi data hasil hitung menjadi format yang diterima oleh komponen Grafik Pie
       List<Map<String, dynamic>> dataBaru = hasilHitung.entries.map((e) {
         double persentase = (e.value / totalPinjam) * 100;
         return {
@@ -113,7 +99,6 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
         };
       }).toList();
 
-      // Memperbarui UI dengan data terbaru yang sudah diambil
       if (mounted) {
         setState(() {
           totalAlat = (resAlat as List).length.toString();
@@ -121,7 +106,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
           totalDenda = displayDenda;
           _logAktivitas = List<Map<String, dynamic>>.from(resLog);
           pieChartData = dataBaru;
-          isLoading = false; // Mematikan indikator loading
+          isLoading = false;
         });
       }
     } catch (e) {
@@ -136,28 +121,28 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFF02182F)))
-            : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(), // Bagian atas (Foto & Nama Admin)
-                    const SizedBox(height: 25),
-                    _buildStatSection(), // Bagian kotak statistik (Alat, User, Denda)
-                    const SizedBox(height: 35),
-                    _buildGraphTitle(), // Judul untuk bagian grafik
-                    _buildChartSection(), // Area tampilan grafik lingkaran
-                    const SizedBox(height: 30),
-                    _buildActivityHeader(), // Judul untuk log aktivitas
-                    _buildLogList(), // Daftar aktivitas terbaru
-                  ],
-                ),
+            : Column( // Menggunakan Column agar header tetap statis
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  _buildHeader(),
+                  const SizedBox(height: 25),
+                  _buildStatSection(),
+                  const SizedBox(height: 35),
+                  _buildGraphTitle(),
+                  _buildChartSection(),
+                  const SizedBox(height: 30),
+                  _buildActivityHeader(),
+                  // Expanded digunakan agar ListView di bawah mengambil sisa ruang dan bisa scroll
+                  Expanded(
+                    child: _buildLogList(),
+                  ),
+                ],
               ),
       ),
     );
   }
 
-  // Widget untuk menampilkan profil admin di header
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25),
@@ -179,7 +164,6 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     );
   }
 
-  // Widget untuk membungkus 3 kartu statistik secara berjajar
   Widget _buildStatSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -200,7 +184,6 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     );
   }
 
-  // Komponen UI kartu statistik satuan
   Widget _buildStatCard(String title, String value) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -216,7 +199,6 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     );
   }
 
-  // Widget untuk menampilkan judul bagian grafik
   Widget _buildGraphTitle() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
@@ -228,7 +210,6 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     );
   }
 
-  // Widget untuk menampilkan grafik pie di kiri dan legend di kanan
   Widget _buildChartSection() {
     if (pieChartData.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(40), child: Text("Data Kosong")));
     
@@ -237,7 +218,6 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
-          // Bagian Visual Lingkaran Grafik
           Expanded(
             flex: 1,
             child: PieChart(
@@ -248,7 +228,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
                   return PieChartSectionData(
                     color: data['color'],
                     value: data['value'],
-                    title: data['percent'], // Persentase yang muncul di dalam irisan grafik
+                    title: data['percent'], 
                     radius: 50,
                     titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
                   );
@@ -256,7 +236,6 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
               ),
             ),
           ),
-          // Bagian Daftar Keterangan (Legend) di samping grafik
           Expanded(
             flex: 1,
             child: ListView(
@@ -285,7 +264,6 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     );
   }
 
-  // Teks Header untuk bagian Log Aktivitas
   Widget _buildActivityHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
@@ -293,12 +271,11 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     );
   }
 
-  // Widget untuk menampilkan daftar aktivitas terbaru dalam bentuk list
   Widget _buildLogList() {
     if (_logAktivitas.isEmpty) return const Center(child: Text("Belum ada aktivitas"));
     return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      // shrinkWrap dilepas agar performa scroll lebih baik dalam Expanded
+      physics: const AlwaysScrollableScrollPhysics(), 
       padding: const EdgeInsets.symmetric(horizontal: 20),
       itemCount: _logAktivitas.length,
       itemBuilder: (context, index) {
@@ -315,7 +292,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
             border: Border.all(color: Colors.grey.shade100),
           ),
           child: ListTile(
-            onTap: () => _showLogDetail(log), // Menampilkan detail log saat di-tap
+            onTap: () => _showLogDetail(log),
             leading: CircleAvatar(
               backgroundColor: const Color(0xFFF0F2F5),
               child: Text(nama[0].toUpperCase(), style: const TextStyle(color: Color(0xFF0D1B3E), fontWeight: FontWeight.bold)),
@@ -329,8 +306,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     );
   }
 
-  // Fungsi placeholder untuk menampilkan detail dari sebuah log aktivitas
   void _showLogDetail(Map<String, dynamic> log) {
-    // Logika popup detail bisa ditambahkan di sini
+    // Detail log logic
   }
 }

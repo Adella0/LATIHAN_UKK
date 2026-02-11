@@ -14,13 +14,15 @@ class _ProfilScreenState extends State<ProfilScreen> {
   Map<String, dynamic>? userData;
   bool _isLoading = true;
 
+  final Color _primaryDark = const Color(0xFF02182F);
+  final Color _accentColor = const Color(0xFFEBE6ED);
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
   }
 
-  // Mengambil data user yang sedang login
   Future<void> _loadUserData() async {
     try {
       final user = supabase.auth.currentUser;
@@ -40,24 +42,32 @@ class _ProfilScreenState extends State<ProfilScreen> {
     }
   }
 
-  // Dialog Logout Sesuai Desain
- void _showLogoutDialog() {
+  void _showLogoutDialog() {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.4), // Overlay lebih soft
+      barrierColor: Colors.black.withOpacity(0.5),
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFEBE6ED), // Warna ungu muda sesuai gambar
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+        backgroundColor: _accentColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _primaryDark.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.logout_rounded, color: _primaryDark, size: 32),
+            ),
+            const SizedBox(height: 20),
             Text(
               "Logout?",
               style: GoogleFonts.poppins(
-                fontSize: 22, 
-                fontWeight: FontWeight.w800, // Lebih tebal
-                color: const Color(0xFF02182F),
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: _primaryDark,
               ),
             ),
             const SizedBox(height: 12),
@@ -65,65 +75,41 @@ class _ProfilScreenState extends State<ProfilScreen> {
               "Apakah kamu yakin ingin keluar dari akun?",
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 14, 
-                color: Colors.black87,
-                height: 1.3,
+                fontSize: 14,
+                color: Colors.black54,
+                height: 1.5,
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 32),
             Row(
               children: [
-                // Tombol Tidak
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: SizedBox(
-                      height: 45,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE0E0E0),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: Text(
-                          "Tidak", 
-                          style: GoogleFonts.poppins(
-                            color: Colors.black, 
-                            fontWeight: FontWeight.w600
-                          ),
-                        ),
-                      ),
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
+                    child: Text("Batal", style: GoogleFonts.poppins(color: Colors.black45, fontWeight: FontWeight.w600)),
                   ),
                 ),
-                // Tombol Iya
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: SizedBox(
-                      height: 45,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          await supabase.auth.signOut();
-                          if (mounted) {
-                            Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF02182F),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: Text(
-                          "Iya", 
-                          style: GoogleFonts.poppins(
-                            color: Colors.white, 
-                            fontWeight: FontWeight.w600
-                          ),
-                        ),
-                      ),
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await supabase.auth.signOut();
+                      if (mounted) {
+                        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryDark,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
+                    child: Text("Keluar", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -137,83 +123,140 @@ class _ProfilScreenState extends State<ProfilScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text("Profil", style: GoogleFonts.poppins(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        title: Text("Profil Saya", style: GoogleFonts.poppins(color: _primaryDark,  fontSize: 18)),
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: _primaryDark, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: _primaryDark))
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(25),
+              padding: const EdgeInsets.symmetric(horizontal: 25),
               child: Column(
                 children: [
-                  const Center(
-                    child: CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Color(0xFFBDC3C7),
-                      child: Icon(Icons.person, size: 80, color: Colors.white),
+                  const SizedBox(height: 20),
+                  // Avatar Section
+                  Center(
+                    child: Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: _primaryDark.withOpacity(0.1), width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: 55,
+                            backgroundColor: _primaryDark,
+                            child: const Icon(Icons.person_rounded, size: 70, color: Colors.white),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                          ),
+                        )
+                      ],
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text("Hallo, ${userData?['nama'] ?? 'User'}!",
-                      style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold)),
-                  Text(userData?['role'] ?? '-',
-                      style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey)),
+                  Text(
+                    userData?['nama'] ?? 'User',
+                    style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold, color: _primaryDark),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _primaryDark.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      userData?['role']?.toUpperCase() ?? '-',
+                      style: GoogleFonts.poppins(fontSize: 12, color: _primaryDark, fontWeight: FontWeight.w600, letterSpacing: 1),
+                    ),
+                  ),
                   const SizedBox(height: 40),
 
-                  // Field Profile (ReadOnly)
-                  _buildProfileField("Nama", userData?['nama']),
-                  _buildProfileField("Email", userData?['email']),
-                  _buildProfileField("Password", "**********"), // Password disembunyikan
-                  _buildProfileField("Sebagai", userData?['role']),
+                  // Profile Info Cards
+                  _buildProfileTile(Icons.person_outline_rounded, "Nama Lengkap", userData?['nama']),
+                  _buildProfileTile(Icons.alternate_email_rounded, "Alamat Email", userData?['email']),
+                  _buildProfileTile(Icons.lock_outline_rounded, "Password", "••••••••••••"),
+                  _buildProfileTile(Icons.verified_user_outlined, "Role Akun", userData?['role']),
 
-                  const SizedBox(height: 50),
+                  const SizedBox(height: 40),
 
-                  // Tombol Logout
+                  // Logout Button
                   SizedBox(
                     width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
+                    height: 55,
+                    child: ElevatedButton(
                       onPressed: _showLogoutDialog,
-                      icon: const Icon(Icons.logout, color: Colors.white),
-                      label: Text("Logout", 
-                        style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF02182F),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.redAccent,
+                        elevation: 0,
+                        side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.logout_rounded, size: 20),
+                          const SizedBox(width: 10),
+                          Text("LOGOUT DARI AKUN", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5)),
+                        ],
                       ),
                     ),
                   ),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildProfileField(String label, String? value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildProfileTile(IconData icon, String label, String? value) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Row(
         children: [
-          Text(label, style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          TextFormField(
-            initialValue: value ?? '-',
-            readOnly: true, // Membuat tidak bisa diedit
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Colors.grey[50],
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _primaryDark.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: _primaryDark, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(value ?? '-', style: GoogleFonts.poppins(fontSize: 14, color: _primaryDark, fontWeight: FontWeight.bold)),
+              ],
             ),
           ),
+          Icon(Icons.chevron_right_rounded, color: Colors.grey[300]),
         ],
       ),
     );
