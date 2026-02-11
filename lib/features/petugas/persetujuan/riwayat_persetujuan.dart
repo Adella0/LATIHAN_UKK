@@ -16,6 +16,10 @@ class _RiwayatPersetujuanState extends State<RiwayatPersetujuan> {
   bool _isLoading = true;
   List<dynamic> _riwayatData = [];
 
+  final Color _primaryDark = const Color(0xFF02182F);
+  // Warna background dirubah agar kartu putih terlihat kontras
+  final Color _screenBg = const Color(0xFFF1F4F8); 
+
   @override
   void initState() {
     super.initState();
@@ -25,12 +29,9 @@ class _RiwayatPersetujuanState extends State<RiwayatPersetujuan> {
   Future<void> _fetchRiwayat() async {
     try {
       setState(() => _isLoading = true);
-      
-      // 1. Ambil ID petugas yang sedang login
       final user = supabase.auth.currentUser;
       if (user == null) return;
 
-      // 2. Ambil data dengan filter petugas_id yang login saja
       final data = await supabase
           .from('peminjaman')
           .select('''
@@ -41,8 +42,8 @@ class _RiwayatPersetujuanState extends State<RiwayatPersetujuan> {
               alat!detail_peminjaman_id_alat_fkey(nama_alat)
             )
           ''')
-          .eq('petugas_id', user.id) // <--- FILTER UTAMA: Hanya data milik petugas ini
-          .neq('status_transaksi', 'pending') // Riwayat adalah yang statusnya bukan pending
+          .eq('petugas_id', user.id)
+          .neq('status_transaksi', 'pending')
           .order('id_pinjam', ascending: false);
 
       setState(() {
@@ -58,7 +59,7 @@ class _RiwayatPersetujuanState extends State<RiwayatPersetujuan> {
   String _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return "-";
     try {
-      return DateFormat('dd/MM/yyyy | HH.mm').format(DateTime.parse(dateStr).toLocal());
+      return DateFormat('dd MMM yyyy').format(DateTime.parse(dateStr).toLocal());
     } catch (e) {
       return dateStr;
     }
@@ -66,141 +67,192 @@ class _RiwayatPersetujuanState extends State<RiwayatPersetujuan> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF02182F)));
+    return Scaffold(
+      backgroundColor: _screenBg, // Pastikan background layar gelap sedikit
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator(color: _primaryDark))
+          : _riwayatData.isEmpty
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                  color: _primaryDark,
+                  onRefresh: _fetchRiwayat,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _riwayatData.length,
+                    itemBuilder: (context, index) {
+                      final item = _riwayatData[index];
+                      return _buildHistoryCard(item);
+                    },
+                  ),
+                ),
+    );
+  }
+
+  Widget _buildHistoryCard(dynamic item) {
+    final String status = item['status_transaksi'] ?? 'aktif';
+    final String namaPeminjam = item['peminjam']?['nama'] ?? "User";
+    final int jmlAlat = (item['detail_peminjaman'] as List?)?.length ?? 0;
+
+    // Config Warna Status
+    Color statusBg = const Color(0xFFE8F9EE);
+    Color statusText = const Color(0xFF28C76F);
+    String statusLabel = "Disetujui";
+
+    if (status == 'ditolak') {
+      statusBg = const Color(0xFFFFEBEB);
+      statusText = const Color(0xFFEA5455);
+      statusLabel = "Ditolak";
+    } else if (status == 'selesai') {
+      statusBg = const Color(0xFFF1F4F8);
+      statusText = const Color(0xFF454545);
+      statusLabel = "Selesai";
     }
 
-    if (_riwayatData.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.history, size: 50, color: Colors.grey),
-            const SizedBox(height: 10),
-            Text(
-              "Belum ada riwayat yang Anda proses",
-              style: GoogleFonts.poppins(color: Colors.grey),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        // SHADOW diperkuat agar tidak menyatu dengan background
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DetailPinjamanScreen(idPinjam: item['id_pinjam']),
             ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _fetchRiwayat,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        itemCount: _riwayatData.length,
-        itemBuilder: (context, index) {
-          final item = _riwayatData[index];
-          final String status = item['status_transaksi'] ?? 'aktif';
-          final String namaPeminjam = item['peminjam']?['nama'] ?? "User";
-          final int jmlAlat = (item['detail_peminjaman'] as List?)?.length ?? 0;
-
-          // Penentuan warna status
-          Color statusColor = const Color(0xFF28C76F); // Default Hijau
-          String statusLabel = "Disetujui";
-
-          if (status == 'ditolak') {
-            statusColor = const Color(0xFFEA5455); // Merah
-            statusLabel = "Ditolak";
-          } else if (status == 'aktif') {
-            statusColor = const Color.fromARGB(255, 0, 156, 37);
-            statusLabel = "Disetujui";
-          } else if (status == 'proses_kembali') {
-            statusColor = Colors.orange;
-            statusLabel = "Dikembalikan";
-          } else if (status == 'selesai') {
-            statusColor = const Color.fromARGB(255, 69, 69, 69);
-            statusLabel = "Selesai";
-          }
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 20),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(25),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5)),
-              ],
-            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 Row(
                   children: [
-                    const CircleAvatar(
-                      radius: 22,
-                      backgroundColor: Color(0xFF1A1A1A),
-                      child: Icon(Icons.person, color: Colors.white, size: 28),
+                    // PROFIL BULAT
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: _primaryDark.withOpacity(0.08),
+                        shape: BoxShape.circle, // Diubah menjadi bulat
+                      ),
+                      child: Center(
+                        child: Text(
+                          namaPeminjam[0].toUpperCase(),
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.bold, 
+                            color: _primaryDark,
+                            fontSize: 16
+                          ),
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 15),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(namaPeminjam, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text("Peminjam", style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600)),
+                          Text(namaPeminjam,
+                              style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.bold, 
+                                  fontSize: 15, 
+                                  color: _primaryDark)),
+                          Text("ID Transaksi: #${item['id_pinjam']}",
+                              style: GoogleFonts.poppins(
+                                  fontSize: 11, color: Colors.grey[600])),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: statusBg,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       child: Text(
                         statusLabel,
-                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.poppins(
+                            color: statusText,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 15),
-                const Divider(color: Colors.black12),
-                const SizedBox(height: 10),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  child: Divider(height: 1, thickness: 0.6, color: Color(0xFFF1F1F1)),
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildInfoCol("Pengambilan", _formatDate(item['pengambilan'])),
-                    _buildInfoCol("Tenggat", _formatDate(item['tenggat'])),
-                    _buildInfoCol("Alat", "$jmlAlat Jenis"),
+                    _buildInfoItem(Icons.calendar_today_outlined, "Pinjam", _formatDate(item['pengambilan'])),
+                    _buildInfoItem(Icons.timer_outlined, "Tenggat", _formatDate(item['tenggat'])),
+                    _buildInfoItem(Icons.inventory_2_outlined, "Alat", "$jmlAlat Item"),
                   ],
                 ),
-                const SizedBox(height: 15),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => DetailPinjamanScreen(idPinjam: item['id_pinjam']),
-                        ),
-                      );
-                    },
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text("Lihat detail", style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54)),
-                        const Icon(Icons.arrow_forward_ios, size: 10, color: Colors.black54),
-                      ],
-                    ),
-                  ),
-                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text("Lihat rincian", 
+                      style: GoogleFonts.poppins(
+                        fontSize: 11, 
+                        fontWeight: FontWeight.w600, 
+                        color: const Color(0xFF3498DB))),
+                    const Icon(Icons.chevron_right_rounded, size: 16, color: Color(0xFF3498DB)),
+                  ],
+                )
               ],
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildInfoCol(String label, String value) {
+  Widget _buildInfoItem(IconData icon, String label, String value) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF02182F))),
+        Row(
+          children: [
+            Icon(icon, size: 12, color: Colors.grey[500]),
+            const SizedBox(width: 4),
+            Text(label, style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[500])),
+          ],
+        ),
         const SizedBox(height: 4),
-        Text(value, style: GoogleFonts.poppins(fontSize: 10, color: Colors.black87), textAlign: TextAlign.center),
+        Text(value, 
+          style: GoogleFonts.poppins(
+            fontSize: 11, 
+            fontWeight: FontWeight.w600, 
+            color: _primaryDark)),
       ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.history_rounded, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text("Belum ada riwayat", style: GoogleFonts.poppins(color: Colors.grey)),
+        ],
+      ),
     );
   }
 }
